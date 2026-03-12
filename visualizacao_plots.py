@@ -36,13 +36,13 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Visualização 3D com eixos e vetores corrigidos para bater com o Mohr."""
+    """Visualização 3D com plano robusto para todos os regimes (Normal, Reverso e Transcorrente)."""
     ang_rad = np.radians(params['ang_s1'])
     reg = params['regime']
     s1, s3 = params['s1'], params['s3']
     s2 = (s1 + s3) / 2 
 
-    # 1. Definição RIGOROSA dos eixos principais
+    # 1. Definição dos eixos principais por regime
     if reg == 'Normal':
         e1, e2, e3 = np.array([0,0,1]), np.array([1,0,0]), np.array([0,1,0])
     elif reg == 'Transcorrente':
@@ -50,8 +50,7 @@ def plot_3d_block(params):
     else: # Reverso
         e1, e2, e3 = np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1])
 
-    # 2. Vetores de Base para o Plano (Rotação em torno de S2)
-    # Sn é ortogonal ao plano. Tau é a projeção no plano.
+    # 2. Matemática Vetorial (Sn Ortogonal | Tau no Plano)
     norm = e1 * np.cos(ang_rad) + e3 * np.sin(ang_rad)
     tau_dir = -e1 * np.sin(ang_rad) + e3 * np.cos(ang_rad)
     
@@ -63,32 +62,29 @@ def plot_3d_block(params):
     for e in edges:
         fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], mode='lines', line=dict(color='black', width=2), showlegend=False, hoverinfo='skip'))
 
-    # 4. PLANO DE FRATURA (Limitado pelo bloco)
-    size = 40
-    # O plano é gerado perpendicular à Normal calculada
-    t = np.linspace(-size, size, 2)
-    s = np.linspace(-size, size, 2)
-    T, S = np.meshgrid(t, s)
+    # 4. GERAÇÃO DO PLANO ROBUSTA (Independente de Regime)
+    # Usamos os vetores de face e2 (intermediário) e tau_dir (cisalhamento)
+    size = 45 
+    pts = []
+    # Cria 4 cantos baseados nos eixos do plano
+    for i, j in [(-1,-1), (1,-1), (1,1), (-1,1)]:
+        pts.append(i * size * e2 + j * size * tau_dir)
+    pts = np.array(pts)
     
-    # Plano Paramétrico: P(t,s) = Origin + t*v2 + s*tau_dir
-    px = T*e2[0] + S*tau_dir[0]
-    py = T*e2[1] + S*tau_dir[1]
-    pz = T*e2[2] + S*tau_dir[2]
+    # Clipagem para manter o plano visualmente dentro do bloco (aproximado)
+    px, py, pz = pts[:,0], pts[:,1], np.clip(pts[:,2], -50, 50)
     
-    # Clipagem para manter dentro do bloco Z[-50, 50]
-    pz_clipped = np.clip(pz, -50, 50)
-    
-    fig.add_trace(go.Mesh3d(x=px.flatten(), y=py.flatten(), z=pz_clipped.flatten(), color='lightblue', opacity=0.8, showlegend=False))
+    fig.add_trace(go.Mesh3d(x=px, y=py, z=pz, color='lightblue', opacity=0.8, showlegend=False))
 
     # 5. VETORES TÉCNICOS
     def add_full_arrow(direction, color, name, magnitude, inward=True):
         scale = 0.25
         d = direction / np.linalg.norm(direction)
-        if inward: # S1, S2, S3 (Compressão)
+        if inward: # S1, S2, S3
             end_p = d * 55
             start_p = d * (55 + magnitude * scale)
             arrow_d = -d
-        else: # Sn, Tau (Saindo do centro)
+        else: # Sn, Tau
             start_p = np.array([0,0,0])
             end_p = d * (magnitude * scale + 15)
             arrow_d = d
@@ -97,12 +93,10 @@ def plot_3d_block(params):
         fig.add_trace(go.Cone(x=[end_p[0]], y=[end_p[1]], z=[end_p[2]], u=[arrow_d[0]], v=[arrow_d[1]], w=[arrow_d[2]], colorscale=[[0, color], [1, color]], showscale=False, sizemode="absolute", sizeref=12))
         fig.add_trace(go.Scatter3d(x=[start_p[0]*1.15 if inward else end_p[0]*1.2], y=[start_p[1]*1.15 if inward else end_p[1]*1.2], z=[start_p[2]*1.15 if inward else end_p[2]*1.2], mode='text', text=[f"<b>{name}</b>"], textfont=dict(color=color, size=13), showlegend=False))
 
-    # Desenho das Tensões Principais
     add_full_arrow(e1, "blue", "S1", s1, inward=True)
     add_full_arrow(e2, "green", "S2", s2, inward=True)
     add_full_arrow(e3, "red", "S3", s3, inward=True)
     
-    # Componentes no Plano ( Sn Ortogonal | Tau no Plano )
     sn_val = s1*np.cos(ang_rad)**2 + s3*np.sin(ang_rad)**2
     tau_val = abs(s1-s3)/2 * np.sin(2*ang_rad)
     
@@ -110,5 +104,5 @@ def plot_3d_block(params):
     if tau_val > 0.5:
         add_full_arrow(tau_dir, "orange", "Tau", tau_val, inward=False)
 
-    fig.update_layout(scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False, aspectmode='data', camera=dict(eye=dict(x=1.4, y=1.4, z=1.4))), height=500, margin=dict(l=0, r=0, t=0, b=0))
+    fig.update_layout(scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False, aspectmode='data', camera=dict(eye=dict(x=1.5, y=1.5, z=1.5))), height=500, margin=dict(l=0, r=0, t=0, b=0))
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
