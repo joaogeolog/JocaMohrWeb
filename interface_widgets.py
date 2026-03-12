@@ -1,19 +1,33 @@
 import streamlit as st
 
+# Valores padrão originais do projeto
+DEFAULTS = {
+    's1': 120.0, 's3': 40.0, 'pp': 20.0, 'alpha': 1.0, 
+    'c': 15.0, 'phi': 30.0, 'ts': 10.0, 'pc': 180.0, 
+    'ang': 30.0, 'regime': 'Normal'
+}
+
 def sync_widgets(source_key, target_key, common_state_key):
     """Sincroniza os widgets através de uma chave comum no session_state."""
     st.session_state[common_state_key] = st.session_state[source_key]
     st.session_state[target_key] = st.session_state[source_key]
 
-def dual_input(label, min_v, max_v, default_v, step=1.0, key_p=""):
+def reset_section(keys):
+    """Reinicia apenas as chaves de uma seção específica para os valores padrão."""
+    for k in keys:
+        val = DEFAULTS[k]
+        st.session_state[f"val_{k}"] = val
+        st.session_state[f"slide_{k}"] = val
+        st.session_state[f"num_{k}"] = val
+
+def dual_input(label, min_v, max_v, key_p, step=1.0):
     st.write(f"**{label}**")
     
-    # Chaves únicas para cada widget e uma comum para o valor final
     s_key = f"slide_{key_p}"
     n_key = f"num_{key_p}"
     base_key = f"val_{key_p}"
+    default_v = DEFAULTS[key_p]
     
-    # Inicialização do estado na primeira execução
     if base_key not in st.session_state:
         st.session_state[base_key] = float(default_v)
         st.session_state[s_key] = float(default_v)
@@ -21,28 +35,16 @@ def dual_input(label, min_v, max_v, default_v, step=1.0, key_p=""):
     
     col1, col2 = st.columns([2, 1])
     
-    # Slider
     col1.slider(
-        label,
-        min_value=float(min_v),
-        max_value=float(max_v),
-        step=float(step),
-        key=s_key,
-        on_change=sync_widgets,
-        args=(s_key, n_key, base_key),
-        label_visibility="collapsed"
+        label, min_value=float(min_v), max_value=float(max_v),
+        step=float(step), key=s_key, on_change=sync_widgets,
+        args=(s_key, n_key, base_key), label_visibility="collapsed"
     )
     
-    # Number Input
     col2.number_input(
-        label,
-        min_value=float(min_v),
-        max_value=float(max_v),
-        step=float(step),
-        key=n_key,
-        on_change=sync_widgets,
-        args=(n_key, s_key, base_key),
-        label_visibility="collapsed"
+        label, min_value=float(min_v), max_value=float(max_v),
+        step=float(step), key=n_key, on_change=sync_widgets,
+        args=(n_key, s_key, base_key), label_visibility="collapsed"
     )
     
     return st.session_state[base_key]
@@ -50,23 +52,43 @@ def dual_input(label, min_v, max_v, default_v, step=1.0, key_p=""):
 def render_sidebar():
     with st.sidebar:
         st.title("⚒️ JocaMohr Web")
-        st.caption("Geólogo: João Carlos Menescal")
+        st.caption("Geólogo: João Carlos Menescal | Macaé, RJ")
 
+        # SEÇÃO 1: ESTADO DE TENSÃO
         with st.expander("1. ESTADO DE TENSÃO (MPa)", expanded=True):
-            s1 = dual_input("S1", 0.0, 400.0, 120.0, key_p="s1")
-            s3 = dual_input("S3", 0.0, 300.0, 40.0, key_p="s3")
-            pp = dual_input("P. Poros", 0.0, 200.0, 20.0, key_p="pp")
-            alpha = dual_input("Biot (α)", 0.0, 1.0, 1.0, step=0.01, key_p="alpha")
+            col_t, col_b = st.columns([3, 1])
+            col_t.write("")
+            if col_b.button("Reset", key="reset_stresses", help="Reiniciar Tensões"):
+                reset_section(['s1', 's3', 'pp'])
+                st.rerun()
+            
+            s1 = dual_input("S1", 0.0, 400.0, "s1")
+            s3 = dual_input("S3", 0.0, 300.0, "s3")
+            pp = dual_input("P. Poros", 0.0, 200.0, "pp")
+            alpha = dual_input("Biot (α)", 0.0, 1.0, "alpha", step=0.01)
 
+        # SEÇÃO 2: PROPRIEDADES DA ROCHA
         with st.expander("2. PROPRIEDADES DA ROCHA", expanded=True):
-            c_rock = dual_input("Coesão", 0.0, 100.0, 15.0, key_p="c")
-            phi = dual_input("Atrito (°)", 0.0, 60.0, 30.0, key_p="phi")
-            ts = dual_input("Tração", 0.0, 50.0, 10.0, key_p="ts")
-            pc = dual_input("Compressão", 0.0, 500.0, 180.0, key_p="pc")
+            col_t, col_b = st.columns([3, 1])
+            if col_b.button("Reset", key="reset_rock", help="Reiniciar Rocha"):
+                reset_section(['c', 'phi', 'ts', 'pc'])
+                st.rerun()
+                
+            c_rock = dual_input("Coesão", 0.0, 100.0, "c")
+            phi = dual_input("Atrito (°)", 0.0, 60.0, "phi")
+            ts = dual_input("Tração", 0.0, 50.0, "ts")
+            pc = dual_input("Compressão", 0.0, 500.0, "pc")
 
+        # SEÇÃO 3: ORIENTAÇÃO DO PLANO
         with st.expander("3. ORIENTAÇÃO DO PLANO", expanded=True):
+            col_t, col_b = st.columns([3, 1])
+            if col_b.button("Reset", key="reset_plane", help="Reiniciar Plano"):
+                reset_section(['ang'])
+                st.session_state["regime_sel"] = "Normal"
+                st.rerun()
+                
             regime = st.selectbox("Regime Tectônico", ["Normal", "Transcorrente", "Reverso"], key="regime_sel")
-            ang_s1 = dual_input("Ângulo com S1 (°)", 0.0, 90.0, 30.0, step=0.1, key_p="ang")
+            ang_s1 = dual_input("Ângulo com S1 (°)", 0.0, 90.0, "ang", step=0.1)
             
     return {
         "s1": s1, "s3": s3, "pp": pp, "alpha": alpha,
