@@ -1,6 +1,6 @@
 import streamlit as st
 
-# Valores padrão originais do projeto
+# Valores padrão originais do projeto (Outubro/2025)
 DEFAULTS = {
     's1': 120.0, 's3': 40.0, 'pp': 20.0, 'alpha': 1.0, 
     'c': 15.0, 'phi': 30.0, 'ts': 10.0, 'pc': 180.0, 
@@ -65,9 +65,10 @@ def render_sidebar():
                 reset_section(['s1', 's3', 'pp', 'alpha'])
                 st.rerun()
             
-            s1 = dual_input("S1", 0.0, 400.0, "s1")
-            s3 = dual_input("S3", 0.0, 300.0, "s3")
-            pp = dual_input("P. Poros", 0.0, 200.0, "pp")
+            # Limites alterados para 0 a 250 conforme solicitado
+            s1 = dual_input("S1", 0.0, 250.0, "s1")
+            s3 = dual_input("S3", 0.0, 250.0, "s3")
+            pp = dual_input("P. Poros", 0.0, 250.0, "pp")
             alpha = dual_input("Biot (α)", 0.0, 1.0, "alpha", step=0.01)
 
         # 2. PROPRIEDADES DA ROCHA
@@ -81,7 +82,8 @@ def render_sidebar():
             c_rock = dual_input("Coesão", 0.0, 100.0, "c")
             phi = dual_input("Atrito (°)", 0.0, 60.0, "phi")
             ts = dual_input("Tração", 0.0, 50.0, "ts")
-            pc = dual_input("Compressão", 0.0, 500.0, "pc")
+            # Nome alterado para Colapso e limite para 250
+            pc = dual_input("Colapso", 0.0, 250.0, "pc")
 
         # 3. ORIENTAÇÃO DO PLANO
         with st.expander("3. ORIENTAÇÃO DO PLANO", expanded=True):
