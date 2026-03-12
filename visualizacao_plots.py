@@ -2,88 +2,36 @@ import plotly.graph_objects as go
 import streamlit as st
 import numpy as np
 
-def plot_mohr(x_env, y_env, xt_coll, xr, yr, xc, yc, sn_p, tn_p, params):
-    """
-    Replica fielmente o comportamento do mohr_window.py original:
-    - Envoltórias coloridas (Azul, Vermelho, Verde).
-    - Círculo estável em azul escuro.
-    - Arcos de falha espessos quando o círculo ultrapassa a envoltória.
-    - Círculo teórico tracejado em preto.
-    """
-    
+def plot_mohr(x_env, y_env, xt_coll, xr, yr, xc, yc, sn_p, tn_p, p_x, p_y, falhou):
     fig = go.Figure()
-
-    # 1. Linha de Base (Baseline preta horizontal)
     fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
 
-    # 2. ENVOLTÓRIAS (Lógica original: já nascem coloridas)
-    # Tração (Azul)
-    m_env_tens = x_env <= 0
-    fig.add_trace(go.Scatter(x=x_env[m_env_tens], y=y_env[m_env_tens], 
-                             name="Tração", line=dict(color='blue', width=1.5), hoverinfo='skip'))
+    # Envoltórias Coloridas (como no mohr_window.py original)
+    fig.add_trace(go.Scatter(x=x_env[x_env<=0], y=y_env[x_env<=0], line=dict(color='blue', width=1.5), hoverinfo='skip', showlegend=False))
+    fig.add_trace(go.Scatter(x=x_env[(x_env>0) & (x_env<=xt_coll)], y=y_env[(x_env>0) & (x_env<=xt_coll)], line=dict(color='red', width=1.5), hoverinfo='skip', showlegend=False))
+    fig.add_trace(go.Scatter(x=x_env[x_env>xt_coll], y=y_env[x_env>xt_coll], line=dict(color='green', width=1.5), hoverinfo='skip', showlegend=False))
+
+    # Círculo Estável e Teórico (Filtro para evitar linhas internas)
+    res_c = np.interp(xc, x_env, y_env, left=0, right=0)
+    m_s = yc <= res_c + 1e-3
     
-    # Cisalhamento (Vermelho)
-    m_env_shear = (x_env > 0) & (x_env <= xt_coll)
-    fig.add_trace(go.Scatter(x=x_env[m_env_shear], y=y_env[m_env_shear], 
-                             name="Cisalhamento", line=dict(color='red', width=1.5), hoverinfo='skip'))
+    # Parte Estável (Azul)
+    fig.add_trace(go.Scatter(x=np.where(m_s, xc, np.nan), y=np.where(m_s, yc, np.nan), line=dict(color='#1f77b4', width=3), name="Estável"))
     
-    # Colapso (Verde)
-    m_env_coll = x_env > xt_coll
-    fig.add_trace(go.Scatter(x=x_env[m_env_coll], y=y_env[m_env_coll], 
-                             name="Colapso", line=dict(color='green', width=1.5), hoverinfo='skip'))
+    # Parte Falha (Tracejada)
+    fig.add_trace(go.Scatter(x=np.where(~m_s, xc, np.nan), y=np.where(~m_s, yc, np.nan), line=dict(color='black', width=1, dash='dash'), name="Teórico"))
 
-    # 3. CÍRCULO ESTÁVEL (Azul escuro #1f77b4 conforme original)
-    # Usamos o 'res_c' interpolado para saber o que está abaixo da envoltória
-    res_c = np.interp(xr, x_env, y_env, left=0, right=0)
-    m_s = (yr < res_c - 1e-3)
-    fig.add_trace(go.Scatter(x=xr[m_s], y=yr[m_s], name="Estável", 
-                             line=dict(color='#1f77b4', width=2), hoverinfo='skip'))
+    # Arcos de Falha Espessos (width=4)
+    m_f = ~m_s & (yc > 0.05)
+    fig.add_trace(go.Scatter(x=np.where(m_f & (xc < 0), xc, np.nan), y=np.where(m_f & (xc < 0), yc, np.nan), line=dict(color='blue', width=4), showlegend=False))
+    fig.add_trace(go.Scatter(x=np.where(m_f & (xc >= 0) & (xc <= xt_coll), xc, np.nan), y=np.where(m_f & (xc >= 0) & (xc <= xt_coll), yc, np.nan), line=dict(color='red', width=4), showlegend=False))
+    fig.add_trace(go.Scatter(x=np.where(m_f & (xc > xt_coll), xc, np.nan), y=np.where(m_f & (xc > xt_coll), yc, np.nan), line=dict(color='green', width=4), showlegend=False))
 
-    # 4. CÍRCULO TEÓRICO (Tracejado preto)
-    m_t = (yc > res_c)
-    fig.add_trace(go.Scatter(x=xc[m_t], y=yc[m_t], name="Teórico", 
-                             line=dict(color='black', width=1, dash='dash'), hoverinfo='skip'))
+    # Trajetória (Path) e Ponto
+    fig.add_trace(go.Scatter(x=p_x, y=p_y, line=dict(color='orange', width=1.5, dash='dash'), name="Trajetória"))
+    fig.add_trace(go.Scatter(x=[sn_p], y=[tn_p], mode='markers', marker=dict(size=14, color='yellow' if falhou else '#2ca02c', line=dict(width=2, color='black')), showlegend=False))
 
-    # 5. ARCOS DE FALHA (Arcos espessos coloridos quando yr > envoltória)
-    m_f = ~m_s & (yr > 0.05)
-    
-    # Arco Tração (Azul espesso)
-    fig.add_trace(go.Scatter(x=xr[m_f & (xr < 0)], y=yr[m_f & (xr < 0)], 
-                             line=dict(color='blue', width=4), showlegend=False))
-    
-    # Arco Cisalhamento (Vermelho espesso)
-    fig.add_trace(go.Scatter(x=xr[m_f & (xr >= 0) & (xr <= xt_coll)], y=yr[m_f & (xr >= 0) & (xr <= xt_coll)], 
-                             line=dict(color='red', width=4), showlegend=False))
-    
-    # Arco Colapso (Verde espesso)
-    fig.add_trace(go.Scatter(x=xr[m_f & (xr > xt_coll)], y=yr[m_f & (xr > xt_coll)], 
-                             line=dict(color='green', width=4), showlegend=False))
-
-    # 6. PONTO ATUAL (Amarelo ou Verde conforme estado de falha)
-    # No original: amarelo se falhou, verde se não. 
-    # Para simplificar na web, mantemos o amarelo de destaque
-    fig.add_trace(go.Scatter(x=[sn_p], y=[tn_p], mode='markers', 
-                             marker=dict(size=14, color='yellow', line=dict(width=2, color='black')),
-                             showlegend=False))
-
-    # 7. RÓTULOS (Posições baseadas na lógica do mohr_window.py)
-    fig.add_annotation(x=-params['ts'] - 15, y=30, text="<b>Ruptura por<br>Tração</b>", font=dict(color="blue", size=11), showarrow=False)
-    fig.add_annotation(x=xt_coll/2, y=85, text="<b>Cisalhamento</b>", font=dict(color="red", size=11), showarrow=False)
-    fig.add_annotation(x=params['pc'] + 20, y=30, text="<b>Colapso<br>de poros</b>", font=dict(color="green", size=11), showarrow=False)
-
-    # 8. CONFIGURAÇÃO DE EIXOS FIXOS
-    fig.update_layout(
-        title="ANÁLISE DE ESTABILIDADE (MOHR-COULOMB)",
-        xaxis_title="Tensão Normal Efetiva (σn') [MPa]",
-        yaxis_title="Tensão Cisalhante Efetiva (τ') [MPa]",
-        height=500,
-        template="plotly_white",
-        xaxis=dict(range=[-50, 250], fixedrange=True, gridcolor='lightgray'),
-        yaxis=dict(range=[0, 100], fixedrange=True, gridcolor='lightgray', scaleanchor="x", scaleratio=1),
-        showlegend=False,
-        margin=dict(l=20, r=20, t=50, b=20)
-    )
-
+    fig.update_layout(title="ANÁLISE DE ESTABILIDADE (MOHR-COULOMB)", height=500, xaxis=dict(range=[-50, 250]), yaxis=dict(range=[0, 100], scaleanchor="x", scaleratio=1), template="plotly_white")
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(regime, ang_s1):
