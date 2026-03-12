@@ -36,25 +36,24 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Visualização 3D com correção matemática da Normal e Tau."""
+    """Visualização 3D com eixos e vetores corrigidos para bater com o Mohr."""
     ang_rad = np.radians(params['ang_s1'])
     reg = params['regime']
     s1, s3 = params['s1'], params['s3']
     s2 = (s1 + s3) / 2 
 
-    # 1. Definição dos eixos por regime
+    # 1. Definição RIGOROSA dos eixos principais
     if reg == 'Normal':
-        v1, v2, v3 = np.array([0,0,1]), np.array([1,0,0]), np.array([0,1,0])
+        e1, e2, e3 = np.array([0,0,1]), np.array([1,0,0]), np.array([0,1,0])
     elif reg == 'Transcorrente':
-        v1, v2, v3 = np.array([0,1,0]), np.array([0,0,1]), np.array([1,0,0])
+        e1, e2, e3 = np.array([0,1,0]), np.array([0,0,1]), np.array([1,0,0])
     else: # Reverso
-        v1, v2, v3 = np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1])
+        e1, e2, e3 = np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1])
 
-    # 2. Cálculo da Normal e Tau Direção (Rigor Geomecânico)
-    # Sn é ortogonal ao plano rotacionado
-    norm = v1 * np.cos(ang_rad) + v3 * np.sin(ang_rad)
-    # Tau é a direção de máximo cisalhamento no plano (contido no plano v1-v3)
-    tau_dir = -v1 * np.sin(ang_rad) + v3 * np.cos(ang_rad)
+    # 2. Vetores de Base para o Plano (Rotação em torno de S2)
+    # Sn é ortogonal ao plano. Tau é a projeção no plano.
+    norm = e1 * np.cos(ang_rad) + e3 * np.sin(ang_rad)
+    tau_dir = -e1 * np.sin(ang_rad) + e3 * np.cos(ang_rad)
     
     fig = go.Figure()
 
@@ -64,46 +63,46 @@ def plot_3d_block(params):
     for e in edges:
         fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], mode='lines', line=dict(color='black', width=2), showlegend=False, hoverinfo='skip'))
 
-    # 4. PLANO CORRIGIDO
-    # Gerando o plano perpendicular à 'norm' calculada
-    p_pts = np.array([[-40,-40,0], [40,-40,0], [40,40,0], [-40,40,0]])
-    # Aplicando a mesma rotação da Normal aos pontos do plano
-    # Plano deve ser ortogonal a Sn
+    # 4. PLANO DE FRATURA (Limitado pelo bloco)
     size = 40
-    if reg == 'Transcorrente': # Rotação em Z
-        px = np.array([-size, size, size, -size]) * np.cos(ang_rad)
-        py = np.array([-size, -size, size, size]) # Eixo fixo
-        pz = np.array([-50, -50, 50, 50])
-        fig.add_trace(go.Mesh3d(x=px, y=py, z=pz, color='lightblue', opacity=0.8, showlegend=False))
-    else: # Rotação em Y (Normal/Reverso)
-        px = np.array([-size, size, size, -size])
-        py = np.array([-size, -size, size, size])
-        pz = px * np.tan(ang_rad) # Inclinação alfa
-        # Clipagem simples no eixo Z
-        pz = np.clip(pz, -50, 50)
-        fig.add_trace(go.Mesh3d(x=px, y=py, z=pz, color='lightblue', opacity=0.8, showlegend=False))
+    # O plano é gerado perpendicular à Normal calculada
+    t = np.linspace(-size, size, 2)
+    s = np.linspace(-size, size, 2)
+    T, S = np.meshgrid(t, s)
+    
+    # Plano Paramétrico: P(t,s) = Origin + t*v2 + s*tau_dir
+    px = T*e2[0] + S*tau_dir[0]
+    py = T*e2[1] + S*tau_dir[1]
+    pz = T*e2[2] + S*tau_dir[2]
+    
+    # Clipagem para manter dentro do bloco Z[-50, 50]
+    pz_clipped = np.clip(pz, -50, 50)
+    
+    fig.add_trace(go.Mesh3d(x=px.flatten(), y=py.flatten(), z=pz_clipped.flatten(), color='lightblue', opacity=0.8, showlegend=False))
 
-    # 5. VETORES
+    # 5. VETORES TÉCNICOS
     def add_full_arrow(direction, color, name, magnitude, inward=True):
-        scale = 0.2
+        scale = 0.25
         d = direction / np.linalg.norm(direction)
-        if inward: # S1, S2, S3
+        if inward: # S1, S2, S3 (Compressão)
             end_p = d * 55
             start_p = d * (55 + magnitude * scale)
             arrow_d = -d
-        else: # Sn, Tau (partindo da origem)
+        else: # Sn, Tau (Saindo do centro)
             start_p = np.array([0,0,0])
-            end_p = d * (magnitude * scale + 10)
+            end_p = d * (magnitude * scale + 15)
             arrow_d = d
 
         fig.add_trace(go.Scatter3d(x=[start_p[0], end_p[0]], y=[start_p[1], end_p[1]], z=[start_p[2], end_p[2]], mode='lines', line=dict(color=color, width=6), showlegend=False))
         fig.add_trace(go.Cone(x=[end_p[0]], y=[end_p[1]], z=[end_p[2]], u=[arrow_d[0]], v=[arrow_d[1]], w=[arrow_d[2]], colorscale=[[0, color], [1, color]], showscale=False, sizemode="absolute", sizeref=12))
-        fig.add_trace(go.Scatter3d(x=[start_p[0]*1.1 if inward else end_p[0]*1.2], y=[start_p[1]*1.1 if inward else end_p[1]*1.2], z=[start_p[2]*1.1 if inward else end_p[2]*1.2], mode='text', text=[f"<b>{name}</b>"], textfont=dict(color=color, size=13), showlegend=False))
+        fig.add_trace(go.Scatter3d(x=[start_p[0]*1.15 if inward else end_p[0]*1.2], y=[start_p[1]*1.15 if inward else end_p[1]*1.2], z=[start_p[2]*1.15 if inward else end_p[2]*1.2], mode='text', text=[f"<b>{name}</b>"], textfont=dict(color=color, size=13), showlegend=False))
 
-    add_full_arrow(v1, "blue", "S1", s1, inward=True)
-    add_full_arrow(v2, "green", "S2", s2, inward=True)
-    add_full_arrow(v3, "red", "S3", s3, inward=True)
+    # Desenho das Tensões Principais
+    add_full_arrow(e1, "blue", "S1", s1, inward=True)
+    add_full_arrow(e2, "green", "S2", s2, inward=True)
+    add_full_arrow(e3, "red", "S3", s3, inward=True)
     
+    # Componentes no Plano ( Sn Ortogonal | Tau no Plano )
     sn_val = s1*np.cos(ang_rad)**2 + s3*np.sin(ang_rad)**2
     tau_val = abs(s1-s3)/2 * np.sin(2*ang_rad)
     
@@ -111,5 +110,5 @@ def plot_3d_block(params):
     if tau_val > 0.5:
         add_full_arrow(tau_dir, "orange", "Tau", tau_val, inward=False)
 
-    fig.update_layout(scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False, aspectmode='data', camera=dict(eye=dict(x=1.5, y=1.5, z=1.5))), height=500, margin=dict(l=0, r=0, t=0, b=0))
+    fig.update_layout(scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False, aspectmode='data', camera=dict(eye=dict(x=1.4, y=1.4, z=1.4))), height=500, margin=dict(l=0, r=0, t=0, b=0))
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
