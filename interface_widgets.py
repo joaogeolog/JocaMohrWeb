@@ -1,6 +1,6 @@
 import streamlit as st
 
-# Valores padrão originais
+# Valores padrão originais do projeto (Outubro/2025)
 DEFAULTS = {
     's1': 120.0, 's3': 40.0, 'pp': 20.0, 'alpha': 1.0, 
     'c': 15.0, 'phi': 30.0, 'ts': 10.0, 'pc': 180.0, 
@@ -8,10 +8,12 @@ DEFAULTS = {
 }
 
 def sync_widgets(source_key, target_key, common_state_key):
+    """Sincroniza os widgets através de uma chave comum no session_state."""
     st.session_state[common_state_key] = st.session_state[source_key]
     st.session_state[target_key] = st.session_state[source_key]
 
 def reset_section(keys):
+    """Reinicia as chaves de uma seção para os valores padrão."""
     for k in keys:
         val = DEFAULTS[k]
         st.session_state[f"val_{k}"] = val
@@ -35,14 +37,23 @@ def dual_input(label, min_v, max_v, key_p, step=1.0):
     return st.session_state[base_key]
 
 def render_sidebar():
-    # CSS injetado para diminuir o tamanho dos botões de Reiniciar
+    # CSS Injetado: Diminui a fonte do botão e o torna mais minimalista
     st.markdown("""
         <style>
         div[data-testid="column"] button {
-            padding: 2px 10px;
-            font-size: 12px;
-            height: 24px;
-            min-height: 24px;
+            padding: 1px 8px !important;
+            font-size: 10px !important; /* Fonte bem pequena */
+            height: 20px !important;
+            min-height: 20px !important;
+            line-height: 1 !important;
+            border-radius: 3px !important;
+            border: 1px solid #ddd !important;
+            background-color: #f9f9f9 !important;
+            color: #666 !important;
+        }
+        div[data-testid="column"] button:hover {
+            border-color: #3498db !important;
+            color: #3498db !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -53,10 +64,10 @@ def render_sidebar():
 
         # 1. ESTADO DE TENSÃO
         with st.expander("1. ESTADO DE TENSÃO (MPa)", expanded=True):
-            c1, c2 = st.columns([3, 2])
-            c1.markdown("<span style='font-size:0.8em; font-weight:bold; color:gray;'>Ações:</span>", unsafe_allow_html=True)
+            c1, c2 = st.columns([3, 1.2]) # Ajuste para o botão caber em linha
+            c1.markdown("<span style='font-size:0.7em; color:gray; font-weight:bold;'>PARÂMETROS</span>", unsafe_allow_html=True)
             if c2.button("Reiniciar", key="res_s"):
-                reset_section(['s1', 's3', 'pp'])
+                reset_section(['s1', 's3', 'pp', 'alpha'])
                 st.rerun()
             
             s1 = dual_input("S1", 0.0, 400.0, "s1")
@@ -66,8 +77,8 @@ def render_sidebar():
 
         # 2. PROPRIEDADES DA ROCHA
         with st.expander("2. PROPRIEDADES DA ROCHA", expanded=True):
-            c1, c2 = st.columns([3, 2])
-            c1.markdown("<span style='font-size:0.8em; font-weight:bold; color:gray;'>Ações:</span>", unsafe_allow_html=True)
+            c1, c2 = st.columns([3, 1.2])
+            c1.markdown("<span style='font-size:0.7em; color:gray; font-weight:bold;'>PARÂMETROS</span>", unsafe_allow_html=True)
             if c2.button("Reiniciar", key="res_r"):
                 reset_section(['c', 'phi', 'ts', 'pc'])
                 st.rerun()
@@ -79,8 +90,8 @@ def render_sidebar():
 
         # 3. ORIENTAÇÃO DO PLANO
         with st.expander("3. ORIENTAÇÃO DO PLANO", expanded=True):
-            c1, c2 = st.columns([3, 2])
-            c1.markdown("<span style='font-size:0.8em; font-weight:bold; color:gray;'>Ações:</span>", unsafe_allow_html=True)
+            c1, c2 = st.columns([3, 1.2])
+            c1.markdown("<span style='font-size:0.7em; color:gray; font-weight:bold;'>PARÂMETROS</span>", unsafe_allow_html=True)
             if c2.button("Reiniciar", key="res_p"):
                 reset_section(['ang'])
                 st.session_state["regime_sel"] = "Normal"
@@ -94,3 +105,4 @@ def render_sidebar():
         "c": c_rock, "phi": phi, "ts": ts, "pc": pc,
         "regime": regime, "ang_s1": ang_s1
     }
+    
