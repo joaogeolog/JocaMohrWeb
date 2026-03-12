@@ -1,6 +1,6 @@
 import streamlit as st
 
-# Valores padrão originais do projeto
+# Valores padrão originais
 DEFAULTS = {
     's1': 120.0, 's3': 40.0, 'pp': 20.0, 'alpha': 1.0, 
     'c': 15.0, 'phi': 30.0, 'ts': 10.0, 'pc': 180.0, 
@@ -8,12 +8,10 @@ DEFAULTS = {
 }
 
 def sync_widgets(source_key, target_key, common_state_key):
-    """Sincroniza os widgets através de uma chave comum no session_state."""
     st.session_state[common_state_key] = st.session_state[source_key]
     st.session_state[target_key] = st.session_state[source_key]
 
 def reset_section(keys):
-    """Reinicia apenas as chaves de uma seção específica para os valores padrão."""
     for k in keys:
         val = DEFAULTS[k]
         st.session_state[f"val_{k}"] = val
@@ -22,43 +20,42 @@ def reset_section(keys):
 
 def dual_input(label, min_v, max_v, key_p, step=1.0):
     st.write(f"**{label}**")
-    
-    s_key = f"slide_{key_p}"
-    n_key = f"num_{key_p}"
-    base_key = f"val_{key_p}"
-    default_v = DEFAULTS[key_p]
+    s_key, n_key, base_key = f"slide_{key_p}", f"num_{key_p}", f"val_{key_p}"
     
     if base_key not in st.session_state:
-        st.session_state[base_key] = float(default_v)
-        st.session_state[s_key] = float(default_v)
-        st.session_state[n_key] = float(default_v)
+        st.session_state[base_key] = float(DEFAULTS[key_p])
+        st.session_state[s_key] = float(DEFAULTS[key_p])
+        st.session_state[n_key] = float(DEFAULTS[key_p])
     
     col1, col2 = st.columns([2, 1])
-    
-    col1.slider(
-        label, min_value=float(min_v), max_value=float(max_v),
-        step=float(step), key=s_key, on_change=sync_widgets,
-        args=(s_key, n_key, base_key), label_visibility="collapsed"
-    )
-    
-    col2.number_input(
-        label, min_value=float(min_v), max_value=float(max_v),
-        step=float(step), key=n_key, on_change=sync_widgets,
-        args=(n_key, s_key, base_key), label_visibility="collapsed"
-    )
-    
+    col1.slider(label, float(min_v), float(max_v), step=float(step), key=s_key, 
+                on_change=sync_widgets, args=(s_key, n_key, base_key), label_visibility="collapsed")
+    col2.number_input(label, float(min_v), float(max_v), step=float(step), key=n_key, 
+                      on_change=sync_widgets, args=(n_key, s_key, base_key), label_visibility="collapsed")
     return st.session_state[base_key]
 
 def render_sidebar():
+    # CSS injetado para diminuir o tamanho dos botões de Reiniciar
+    st.markdown("""
+        <style>
+        div[data-testid="column"] button {
+            padding: 2px 10px;
+            font-size: 12px;
+            height: 24px;
+            min-height: 24px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
     with st.sidebar:
         st.title("⚒️ JocaMohr Web")
         st.caption("Geólogo: João Carlos Menescal | Macaé, RJ")
 
-        # SEÇÃO 1: ESTADO DE TENSÃO
+        # 1. ESTADO DE TENSÃO
         with st.expander("1. ESTADO DE TENSÃO (MPa)", expanded=True):
-            col_t, col_b = st.columns([3, 1])
-            col_t.write("")
-            if col_b.button("Reset", key="reset_stresses", help="Reiniciar Tensões"):
+            c1, c2 = st.columns([3, 2])
+            c1.markdown("<span style='font-size:0.8em; font-weight:bold; color:gray;'>Ações:</span>", unsafe_allow_html=True)
+            if c2.button("Reiniciar", key="res_s"):
                 reset_section(['s1', 's3', 'pp'])
                 st.rerun()
             
@@ -67,10 +64,11 @@ def render_sidebar():
             pp = dual_input("P. Poros", 0.0, 200.0, "pp")
             alpha = dual_input("Biot (α)", 0.0, 1.0, "alpha", step=0.01)
 
-        # SEÇÃO 2: PROPRIEDADES DA ROCHA
+        # 2. PROPRIEDADES DA ROCHA
         with st.expander("2. PROPRIEDADES DA ROCHA", expanded=True):
-            col_t, col_b = st.columns([3, 1])
-            if col_b.button("Reset", key="reset_rock", help="Reiniciar Rocha"):
+            c1, c2 = st.columns([3, 2])
+            c1.markdown("<span style='font-size:0.8em; font-weight:bold; color:gray;'>Ações:</span>", unsafe_allow_html=True)
+            if c2.button("Reiniciar", key="res_r"):
                 reset_section(['c', 'phi', 'ts', 'pc'])
                 st.rerun()
                 
@@ -79,15 +77,16 @@ def render_sidebar():
             ts = dual_input("Tração", 0.0, 50.0, "ts")
             pc = dual_input("Compressão", 0.0, 500.0, "pc")
 
-        # SEÇÃO 3: ORIENTAÇÃO DO PLANO
+        # 3. ORIENTAÇÃO DO PLANO
         with st.expander("3. ORIENTAÇÃO DO PLANO", expanded=True):
-            col_t, col_b = st.columns([3, 1])
-            if col_b.button("Reset", key="reset_plane", help="Reiniciar Plano"):
+            c1, c2 = st.columns([3, 2])
+            c1.markdown("<span style='font-size:0.8em; font-weight:bold; color:gray;'>Ações:</span>", unsafe_allow_html=True)
+            if c2.button("Reiniciar", key="res_p"):
                 reset_section(['ang'])
                 st.session_state["regime_sel"] = "Normal"
                 st.rerun()
                 
-            regime = st.selectbox("Regime Tectônico", ["Normal", "Transcorrente", "Reverso"], key="regime_sel")
+            regime = st.selectbox("Regime", ["Normal", "Transcorrente", "Reverso"], key="regime_sel")
             ang_s1 = dual_input("Ângulo com S1 (°)", 0.0, 90.0, "ang", step=0.1)
             
     return {
