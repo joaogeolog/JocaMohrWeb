@@ -16,7 +16,7 @@ def reset_section(keys):
         st.session_state[f"val_{k}"] = val
         st.session_state[f"slide_{k}"] = val
         st.session_state[f"num_{k}"] = val
-    if 'ang' in keys: # Se resetar o plano, limpa a trajetória
+    if 'ang' in keys:
         st.session_state.path_x, st.session_state.path_y = [], []
         st.session_state.ponto_fisico = {'sn': 0.0, 'tn': 0.0}
 
@@ -35,33 +35,38 @@ def dual_input(label, min_v, max_v, key_p, step=1.0):
                       on_change=sync_widgets, args=(n_key, s_key, base_key), label_visibility="collapsed")
     return st.session_state[base_key]
 
-def render_sidebar():
+def render_bottom_interface():
+    """Renderiza os controles na parte inferior da tela em 3 colunas."""
     if 'path_x' not in st.session_state:
         st.session_state.path_x, st.session_state.path_y = [], []
         st.session_state.ponto_fisico = {'sn': 0.0, 'tn': 0.0}
 
     st.markdown("""<style>div[data-testid="column"] button {padding: 1px 4px !important; font-size: 6px !important; height: 16px !important; white-space: nowrap !important;}</style>""", unsafe_allow_html=True)
 
-    with st.sidebar:
-        st.title("⚒️ JocaMohr Web")
+    # Divisão em 3 campos lateralmente
+    base_col1, base_col2, base_col3 = st.columns(3)
+
+    with base_col1:
         with st.expander("1. ESTADO DE TENSÃO (MPa)", expanded=True):
-            c1, c2 = st.columns([2.2, 1.8]); c1.write("PARÂMETROS")
+            c1, c2 = st.columns([2.2, 1.8]); c1.caption("PARÂMETROS")
             if c2.button("Reiniciar", key="res_s"): reset_section(['s1', 's3', 'pp', 'alpha']); st.rerun()
             s1 = dual_input("S1", 0.0, 250.0, "s1")
             s3 = dual_input("S3", 0.0, 250.0, "s3")
             pp = dual_input("P. Poros", 0.0, 250.0, "pp")
             alpha = dual_input("Biot (α)", 0.0, 1.0, "alpha", step=0.01)
 
+    with base_col2:
         with st.expander("2. PROPRIEDADES DA ROCHA", expanded=True):
-            c1, c2 = st.columns([2.2, 1.8]); c1.write("PARÂMETROS")
+            c1, c2 = st.columns([2.2, 1.8]); c1.caption("PARÂMETROS")
             if c2.button("Reiniciar", key="res_r"): reset_section(['c', 'phi', 'ts', 'pc']); st.rerun()
             c_rock = dual_input("Coesão", 0.0, 100.0, "c")
             phi = dual_input("Atrito (°)", 0.0, 60.0, "phi")
             ts = dual_input("Tração", 0.0, 50.0, "ts")
             pc = dual_input("Colapso", 0.0, 250.0, "pc")
 
+    with base_col3:
         with st.expander("3. ORIENTAÇÃO DO PLANO", expanded=True):
-            c1, c2 = st.columns([2.2, 1.8]); c1.write("PARÂMETROS")
+            c1, c2 = st.columns([2.2, 1.8]); c1.caption("PARÂMETROS")
             if c2.button("Reiniciar", key="res_p"): reset_section(['ang']); st.session_state["regime_sel"] = "Normal"; st.rerun()
             regime = st.selectbox("Regime", ["Normal", "Transcorrente", "Reverso"], key="regime_sel")
             ang_s1 = dual_input("Ângulo com S1 (°)", 0.0, 90.0, "ang", step=0.1)
