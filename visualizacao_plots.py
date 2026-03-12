@@ -36,7 +36,7 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Renderiza o bloco 3D com vetores de compressão (apontando para o cubo) e componentes locais saindo do centro."""
+    """Visualização 3D com rigor físico: Sn ortogonal e Tau contido no plano."""
     ang_rad = np.radians(params['ang_s1'])
     reg = params['regime']
     s1, s3 = params['s1'], params['s3']
@@ -44,7 +44,12 @@ def plot_3d_block(params):
 
     # Eixos por Regime
     v1, v2, v3 = ([0,0,1],[1,0,0],[0,1,0]) if reg=='Normal' else (([0,1,0],[0,0,1],[1,0,0]) if reg=='Transcorrente' else ([1,0,0],[0,1,0],[0,0,1]))
+    
+    # Vetor Normal (n) - Ortogonal ao plano
     norm = np.array(v1)*np.cos(ang_rad) + np.array(v3)*np.sin(ang_rad)
+    
+    # Vetor de Cisalhamento (tau_dir) - Perpendicular a 'n', contido no plano S1-S3
+    tau_dir = -np.array(v1)*np.sin(ang_rad) + np.array(v3)*np.cos(ang_rad)
     
     fig = go.Figure()
 
@@ -64,36 +69,34 @@ def plot_3d_block(params):
         pz = px * np.tan(ang_rad)
         fig.add_trace(go.Mesh3d(x=px, y=py, z=pz, color='lightblue', opacity=0.8, showlegend=False))
 
-    # 3. VETORES TÉCNICOS
+    # 3. FUNÇÃO DE VETORES
     def add_full_arrow(direction, color, name, magnitude, inward=True):
         scale = 0.2
         d = np.array(direction) / np.linalg.norm(direction)
-        # Se for tensão principal (inward), aponta CONTRA o cubo. Se local, SAI do centro.
-        if inward:
-            end_p = d * 55 # Ponta toca a face
-            start_p = d * (55 + magnitude * scale) # Início fora
-            arrow_d = -d # Direção da ponta
-        else:
-            start_p = np.array([0,0,0]) # Parte do centro do plano
+        if inward: # Tensões Principais
+            end_p = d * 55 
+            start_p = d * (55 + magnitude * scale)
+            arrow_d = -d 
+        else: # Componentes Locais (Partindo do centro do plano)
+            start_p = np.array([0,0,0]) 
             end_p = d * (magnitude * scale)
             arrow_d = d
 
         fig.add_trace(go.Scatter3d(x=[start_p[0], end_p[0]], y=[start_p[1], end_p[1]], z=[start_p[2], end_p[2]], mode='lines', line=dict(color=color, width=5), showlegend=False))
         fig.add_trace(go.Cone(x=[end_p[0]], y=[end_p[1]], z=[end_p[2]], u=[arrow_d[0]], v=[arrow_d[1]], w=[arrow_d[2]], colorscale=[[0, color], [1, color]], showscale=False, sizemode="absolute", sizeref=10))
-        fig.add_trace(go.Scatter3d(x=[start_p[0] * 1.1], y=[start_p[1] * 1.1], z=[start_p[2] * 1.1], mode='text', text=[f"<b>{name}</b>"], textfont=dict(color=color, size=12), showlegend=False))
+        fig.add_trace(go.Scatter3d(x=[start_p[0] * 1.15 if inward else end_p[0]*1.2], y=[start_p[1] * 1.15 if inward else end_p[1]*1.2], z=[start_p[2] * 1.15 if inward else end_p[2]*1.2], mode='text', text=[f"<b>{name}</b>"], textfont=dict(color=color, size=12), showlegend=False))
 
-    # Tensões Principais (Compressão: Apontando para o cubo)
+    # Tensões Principais (Compressão)
     add_full_arrow(v1, "blue", "S1", s1, inward=True)
     add_full_arrow(v2, "green", "S2", s2, inward=True)
     add_full_arrow(v3, "red", "S3", s3, inward=True)
     
-    # Componentes Locais (Saindo do centro do plano)
+    # Componentes Locais ( Sn Ortogonal | Tau no Plano )
     sn_v = s1*np.cos(ang_rad)**2 + s3*np.sin(ang_rad)**2
     tau_v = abs(s1-s3)/2 * np.sin(2*ang_rad)
-    tau_dir = -np.array(v1)*np.sin(ang_rad) + np.array(v3)*np.cos(ang_rad)
     
     add_full_arrow(norm, "black", "Sn", sn_v, inward=False)
-    if tau_v > 1.0:
+    if tau_v > 0.5:
         add_full_arrow(tau_dir, "orange", "Tau", tau_v, inward=False)
 
     fig.update_layout(scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False, aspectmode='data', camera=dict(eye=dict(x=1.4, y=1.4, z=1.4))), height=500, margin=dict(l=0, r=0, t=0, b=0))
