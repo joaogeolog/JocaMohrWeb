@@ -7,27 +7,27 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     fig = go.Figure()
     fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
     
-    # Envoltórias
+    # Envoltórias coloridas fixas
     fig.add_trace(go.Scatter(x=x_env[x_env<=0], y=y_env[x_env<=0], line=dict(color='blue', width=1.5), showlegend=False))
     fig.add_trace(go.Scatter(x=x_env[(x_env>0) & (x_env<=xt_coll)], y=y_env[(x_env>0) & (x_env<=xt_coll)], line=dict(color='red', width=1.5), showlegend=False))
     fig.add_trace(go.Scatter(x=x_env[x_env>xt_coll], y=y_env[x_env>xt_coll], line=dict(color='green', width=1.5), showlegend=False))
     
-    # Círculos
+    # Círculos (Estável e Teórico)
     m_s = (yc_o < res_c - 1e-3)
     m_f = ~m_s & (yc_o > 0.05)
     fig.add_trace(go.Scatter(x=np.where(m_s, xc_o, np.nan), y=np.where(m_s, yc_o, np.nan), line=dict(color='#1f77b4', width=2.5), name="Estável"))
     fig.add_trace(go.Scatter(x=np.where(~m_s, xc_o, np.nan), y=np.where(~m_s, yc_o, np.nan), line=dict(color='black', width=1, dash='dash'), name="Teórico"))
     
-    # Arcos de Falha Colapsados
+    # Arcos de Falha Colapsados (width=4)
     fig.add_trace(go.Scatter(x=np.where(m_f & (xc_f < 0), xc_f, np.nan), y=np.where(m_f & (xc_f < 0), yc_f, np.nan), line=dict(color='blue', width=4), showlegend=False))
     fig.add_trace(go.Scatter(x=np.where(m_f & (xc_f >= 0) & (xc_f <= xt_coll), xc_f, np.nan), y=np.where(m_f & (xc_f >= 0) & (xc_f <= xt_coll), yc_f, np.nan), line=dict(color='red', width=4), showlegend=False))
     fig.add_trace(go.Scatter(x=np.where(m_f & (xc_f > xt_coll), xc_f, np.nan), y=np.where(m_f & (xc_f > xt_coll), yc_f, np.nan), line=dict(color='green', width=4), showlegend=False))
     
-    # Trajetória e Ponto
+    # Trajetória
     fig.add_trace(go.Scatter(x=p_x, y=p_y, line=dict(color='orange', width=1.5, dash='dash'), name="Trajetória"))
     fig.add_trace(go.Scatter(x=[sn_p], y=[tn_p], mode='markers', marker=dict(size=14, color='yellow' if falhou else '#2ca02c', line=dict(width=2, color='black')), showlegend=False))
     
-    # Rótulos
+    # Rótulos técnicos
     fig.add_annotation(x=-params['ts'] - 15, y=30, text="<b>Ruptura por<br>Tração</b>", font=dict(color="blue", size=10), showarrow=False)
     fig.add_annotation(x=xt_coll/2, y=90, text="<b>Cisalhamento</b>", font=dict(color="red", size=10), showarrow=False)
     fig.add_annotation(x=params['pc'] + 20, y=30, text="<b>Colapso<br>de poros</b>", font=dict(color="green", size=10), showarrow=False)
@@ -36,13 +36,13 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Visualização 3D com plano robusto para todos os regimes (Normal, Reverso e Transcorrente)."""
+    """Visualização 3D com plano robusto para todos os regimes, incluindo Transcorrente."""
     ang_rad = np.radians(params['ang_s1'])
     reg = params['regime']
     s1, s3 = params['s1'], params['s3']
     s2 = (s1 + s3) / 2 
 
-    # 1. Definição dos eixos principais por regime
+    # 1. Eixos por regime
     if reg == 'Normal':
         e1, e2, e3 = np.array([0,0,1]), np.array([1,0,0]), np.array([0,1,0])
     elif reg == 'Transcorrente':
@@ -50,7 +50,7 @@ def plot_3d_block(params):
     else: # Reverso
         e1, e2, e3 = np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1])
 
-    # 2. Matemática Vetorial (Sn Ortogonal | Tau no Plano)
+    # 2. Direções geomecânicas
     norm = e1 * np.cos(ang_rad) + e3 * np.sin(ang_rad)
     tau_dir = -e1 * np.sin(ang_rad) + e3 * np.cos(ang_rad)
     
@@ -62,29 +62,34 @@ def plot_3d_block(params):
     for e in edges:
         fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], mode='lines', line=dict(color='black', width=2), showlegend=False, hoverinfo='skip'))
 
-    # 4. GERAÇÃO DO PLANO ROBUSTA (Independente de Regime)
-    # Usamos os vetores de face e2 (intermediário) e tau_dir (cisalhamento)
-    size = 45 
-    pts = []
-    # Cria 4 cantos baseados nos eixos do plano
-    for i, j in [(-1,-1), (1,-1), (1,1), (-1,1)]:
-        pts.append(i * size * e2 + j * size * tau_dir)
-    pts = np.array(pts)
+    # 4. GERAÇÃO DE PLANO PARAMÉTRICA (Blindado para Transcorrente)
+    # Cria uma malha de pontos usando os vetores de base do plano (e2 e tau_dir)
+    u, w = np.meshgrid(np.linspace(-40, 40, 2), np.linspace(-40, 40, 2))
     
-    # Clipagem para manter o plano visualmente dentro do bloco (aproximado)
-    px, py, pz = pts[:,0], pts[:,1], np.clip(pts[:,2], -50, 50)
-    
-    fig.add_trace(go.Mesh3d(x=px, y=py, z=pz, color='lightblue', opacity=0.8, showlegend=False))
+    # P(u,w) = u*e2 + w*tau_dir
+    px = u * e2[0] + w * tau_dir[0]
+    py = u * e2[1] + w * tau_dir[1]
+    pz = u * e2[2] + w * tau_dir[2]
 
-    # 5. VETORES TÉCNICOS
+    # Clipagem manual para não vazar do bloco Z [-50, 50]
+    pz = np.clip(pz, -50, 50)
+
+    fig.add_trace(go.Mesh3d(
+        x=px.flatten(), y=py.flatten(), z=pz.flatten(),
+        color='lightblue', opacity=0.8, 
+        delaunay_axis='z' if reg != 'Transcorrente' else 'x', # Ajuste de renderização
+        showlegend=False
+    ))
+
+    # 5. VETORES
     def add_full_arrow(direction, color, name, magnitude, inward=True):
         scale = 0.25
-        d = direction / np.linalg.norm(direction)
-        if inward: # S1, S2, S3
+        d = direction / (np.linalg.norm(direction) + 1e-9)
+        if inward:
             end_p = d * 55
             start_p = d * (55 + magnitude * scale)
             arrow_d = -d
-        else: # Sn, Tau
+        else:
             start_p = np.array([0,0,0])
             end_p = d * (magnitude * scale + 15)
             arrow_d = d
