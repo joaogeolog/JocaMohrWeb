@@ -7,18 +7,18 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     fig = go.Figure()
     fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
     
-    # Envoltórias coloridas fixas
+    # Envoltórias
     fig.add_trace(go.Scatter(x=x_env[x_env<=0], y=y_env[x_env<=0], line=dict(color='blue', width=1.5), showlegend=False))
     fig.add_trace(go.Scatter(x=x_env[(x_env>0) & (x_env<=xt_coll)], y=y_env[(x_env>0) & (x_env<=xt_coll)], line=dict(color='red', width=1.5), showlegend=False))
     fig.add_trace(go.Scatter(x=x_env[x_env>xt_coll], y=y_env[x_env>xt_coll], line=dict(color='green', width=1.5), showlegend=False))
     
-    # Círculos (Estável e Teórico)
+    # Círculos
     m_s = (yc_o < res_c - 1e-3)
     m_f = ~m_s & (yc_o > 0.05)
     fig.add_trace(go.Scatter(x=np.where(m_s, xc_o, np.nan), y=np.where(m_s, yc_o, np.nan), line=dict(color='#1f77b4', width=2.5), name="Estável"))
     fig.add_trace(go.Scatter(x=np.where(~m_s, xc_o, np.nan), y=np.where(~m_s, yc_o, np.nan), line=dict(color='black', width=1, dash='dash'), name="Teórico"))
     
-    # Arcos de Falha Colapsados (width=4)
+    # Arcos de Falha
     fig.add_trace(go.Scatter(x=np.where(m_f & (xc_f < 0), xc_f, np.nan), y=np.where(m_f & (xc_f < 0), yc_f, np.nan), line=dict(color='blue', width=4), showlegend=False))
     fig.add_trace(go.Scatter(x=np.where(m_f & (xc_f >= 0) & (xc_f <= xt_coll), xc_f, np.nan), y=np.where(m_f & (xc_f >= 0) & (xc_f <= xt_coll), yc_f, np.nan), line=dict(color='red', width=4), showlegend=False))
     fig.add_trace(go.Scatter(x=np.where(m_f & (xc_f > xt_coll), xc_f, np.nan), y=np.where(m_f & (xc_f > xt_coll), yc_f, np.nan), line=dict(color='green', width=4), showlegend=False))
@@ -27,7 +27,7 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     fig.add_trace(go.Scatter(x=p_x, y=p_y, line=dict(color='orange', width=1.5, dash='dash'), name="Trajetória"))
     fig.add_trace(go.Scatter(x=[sn_p], y=[tn_p], mode='markers', marker=dict(size=14, color='yellow' if falhou else '#2ca02c', line=dict(width=2, color='black')), showlegend=False))
     
-    # Rótulos técnicos
+    # Rótulos
     fig.add_annotation(x=-params['ts'] - 15, y=30, text="<b>Ruptura por<br>Tração</b>", font=dict(color="blue", size=10), showarrow=False)
     fig.add_annotation(x=xt_coll/2, y=90, text="<b>Cisalhamento</b>", font=dict(color="red", size=10), showarrow=False)
     fig.add_annotation(x=params['pc'] + 20, y=30, text="<b>Colapso<br>de poros</b>", font=dict(color="green", size=10), showarrow=False)
@@ -36,7 +36,7 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Visualização 3D com plano robusto para todos os regimes, incluindo Transcorrente."""
+    """Visualização 3D com correção do erro ValueError no Mesh3d."""
     ang_rad = np.radians(params['ang_s1'])
     reg = params['regime']
     s1, s3 = params['s1'], params['s3']
@@ -50,7 +50,7 @@ def plot_3d_block(params):
     else: # Reverso
         e1, e2, e3 = np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1])
 
-    # 2. Direções geomecânicas
+    # 2. Direções
     norm = e1 * np.cos(ang_rad) + e3 * np.sin(ang_rad)
     tau_dir = -e1 * np.sin(ang_rad) + e3 * np.cos(ang_rad)
     
@@ -62,22 +62,22 @@ def plot_3d_block(params):
     for e in edges:
         fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], mode='lines', line=dict(color='black', width=2), showlegend=False, hoverinfo='skip'))
 
-    # 4. GERAÇÃO DE PLANO PARAMÉTRICA (Blindado para Transcorrente)
-    # Cria uma malha de pontos usando os vetores de base do plano (e2 e tau_dir)
-    u, w = np.meshgrid(np.linspace(-40, 40, 2), np.linspace(-40, 40, 2))
+    # 4. GERAÇÃO DO PLANO COM TRIANGULAÇÃO EXPLÍCITA (Resolve ValueError)
+    size = 42
+    # Geramos os 4 cantos do plano usando vetores de base do próprio plano
+    p1 = -size * e2 - size * tau_dir
+    p2 =  size * e2 - size * tau_dir
+    p3 =  size * e2 + size * tau_dir
+    p4 = -size * e2 + size * tau_dir
     
-    # P(u,w) = u*e2 + w*tau_dir
-    px = u * e2[0] + w * tau_dir[0]
-    py = u * e2[1] + w * tau_dir[1]
-    pz = u * e2[2] + w * tau_dir[2]
+    pts = np.array([p1, p2, p3, p4])
+    px, py, pz = pts[:,0], pts[:,1], np.clip(pts[:,2], -50, 50)
 
-    # Clipagem manual para não vazar do bloco Z [-50, 50]
-    pz = np.clip(pz, -50, 50)
-
+    # Definimos os dois triângulos que formam o quadrilátero (indices i, j, k)
     fig.add_trace(go.Mesh3d(
-        x=px.flatten(), y=py.flatten(), z=pz.flatten(),
+        x=px, y=py, z=pz,
+        i=[0, 0], j=[1, 2], k=[2, 3], # Triângulos: (0,1,2) e (0,2,3)
         color='lightblue', opacity=0.8, 
-        delaunay_axis='z' if reg != 'Transcorrente' else 'x', # Ajuste de renderização
         showlegend=False
     ))
 
