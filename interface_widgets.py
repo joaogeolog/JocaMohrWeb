@@ -1,44 +1,56 @@
 import streamlit as st
 
+def sync_widgets(source_key, target_key, common_state_key):
+    """Sincroniza os widgets através de uma chave comum no session_state."""
+    st.session_state[common_state_key] = st.session_state[source_key]
+    st.session_state[target_key] = st.session_state[source_key]
+
 def dual_input(label, min_v, max_v, default_v, step=1.0, key_p=""):
     st.write(f"**{label}**")
     
-    # Nome da chave única no estado da sessão
-    key = f"val_{key_p}"
+    # Chaves únicas para cada widget e uma comum para o valor final
+    s_key = f"slide_{key_p}"
+    n_key = f"num_{key_p}"
+    base_key = f"val_{key_p}"
     
-    # Inicializa o valor se a página for carregada pela primeira vez
-    if key not in st.session_state:
-        st.session_state[key] = float(default_v)
+    # Inicialização do estado na primeira execução
+    if base_key not in st.session_state:
+        st.session_state[base_key] = float(default_v)
+        st.session_state[s_key] = float(default_v)
+        st.session_state[n_key] = float(default_v)
     
     col1, col2 = st.columns([2, 1])
     
-    # O segredo da sincronia: ambos usam a mesma 'key' do session_state
-    # Quando um muda, o Streamlit atualiza automaticamente o valor da 'key' para o outro
+    # Slider
     col1.slider(
-        label, 
-        min_value=float(min_v), 
-        max_value=float(max_v), 
+        label,
+        min_value=float(min_v),
+        max_value=float(max_v),
         step=float(step),
-        key=key,  # Chave compartilhada
+        key=s_key,
+        on_change=sync_widgets,
+        args=(s_key, n_key, base_key),
         label_visibility="collapsed"
     )
     
+    # Number Input
     col2.number_input(
-        label, 
-        min_value=float(min_v), 
-        max_value=float(max_v), 
+        label,
+        min_value=float(min_v),
+        max_value=float(max_v),
         step=float(step),
-        key=key,  # Chave compartilhada
+        key=n_key,
+        on_change=sync_widgets,
+        args=(n_key, s_key, base_key),
         label_visibility="collapsed"
     )
     
-    # Retorna o valor atualizado que ambos estão editando
-    return st.session_state[key]
+    return st.session_state[base_key]
 
 def render_sidebar():
     with st.sidebar:
         st.title("⚒️ JocaMohr Web")
-        st.caption("Geólogo: João Carlos Menescal | Macaé, RJ")
+        st.caption("Geólogo: João Carlos Menescal")
 
         with st.expander("1. ESTADO DE TENSÃO (MPa)", expanded=True):
             s1 = dual_input("S1", 0.0, 400.0, 120.0, key_p="s1")
