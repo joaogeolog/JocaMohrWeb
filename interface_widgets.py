@@ -1,44 +1,44 @@
 import streamlit as st
 
-def sync_input(key_to_update, new_value):
-    """Atualiza o valor no session_state para garantir a sincronização."""
-    st.session_state[key_to_update] = new_value
-
 def dual_input(label, min_v, max_v, default_v, step=1.0, key_p=""):
     st.write(f"**{label}**")
     
-    # Inicializa o estado se não existir
-    if f"val_{key_p}" not in st.session_state:
-        st.session_state[f"val_{key_p}"] = float(default_v)
+    # Nome da chave única no estado da sessão
+    key = f"val_{key_p}"
     
-    c1, c2 = st.columns([2, 1])
+    # Inicializa o valor se a página for carregada pela primeira vez
+    if key not in st.session_state:
+        st.session_state[key] = float(default_v)
     
-    # 1. Slider: Quando alterado, dispara o callback para atualizar o Number Input
-    val_slider = c1.slider(
-        f"S_{key_p}", min_v, max_v, 
-        key=f"slide_{key_p}",
-        value=st.session_state[f"val_{key_p}"],
+    col1, col2 = st.columns([2, 1])
+    
+    # O segredo da sincronia: ambos usam a mesma 'key' do session_state
+    # Quando um muda, o Streamlit atualiza automaticamente o valor da 'key' para o outro
+    col1.slider(
+        label, 
+        min_value=float(min_v), 
+        max_value=float(max_v), 
         step=float(step),
-        label_visibility="collapsed",
-        on_change=lambda: sync_input(f"val_{key_p}", st.session_state[f"slide_{key_p}"])
+        key=key,  # Chave compartilhada
+        label_visibility="collapsed"
     )
     
-    # 2. Number Input: Quando alterado, dispara o callback para atualizar o Slider
-    val_num = c2.number_input(
-        f"N_{key_p}", min_v, max_v,
-        key=f"num_{key_p}",
-        value=st.session_state[f"val_{key_p}"],
+    col2.number_input(
+        label, 
+        min_value=float(min_v), 
+        max_value=float(max_v), 
         step=float(step),
-        label_visibility="collapsed",
-        on_change=lambda: sync_input(f"val_{key_p}", st.session_state[f"num_{key_p}"])
+        key=key,  # Chave compartilhada
+        label_visibility="collapsed"
     )
     
-    return st.session_state[f"val_{key_p}"]
+    # Retorna o valor atualizado que ambos estão editando
+    return st.session_state[key]
 
 def render_sidebar():
     with st.sidebar:
         st.title("⚒️ JocaMohr Web")
-        st.caption("Geólogo: João Carlos Menescal")
+        st.caption("Geólogo: João Carlos Menescal | Macaé, RJ")
 
         with st.expander("1. ESTADO DE TENSÃO (MPa)", expanded=True):
             s1 = dual_input("S1", 0.0, 400.0, 120.0, key_p="s1")
