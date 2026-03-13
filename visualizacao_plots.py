@@ -3,7 +3,7 @@ import streamlit as st
 import numpy as np
 
 def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, p_x, p_y, falhou, params):
-    """Renderiza o Diagrama de Mohr (usa o ângulo com S1)."""
+    """Renderiza o Diagrama de Mohr (Baseado no ângulo com S1)."""
     fig = go.Figure()
     fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
     
@@ -31,21 +31,18 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Visualização 3D com separação clara entre ângulo com S1 e Mergulho."""
-    ang_s1_deg = params['ang_s1']
+    """Visualização 3D rotacionada no centro (0,0,0) com separação Mergulho vs S1."""
+    theta_deg = params['ang_s1']
+    theta_rad = np.radians(theta_deg)
     
-    # 1. SEPARAÇÃO CONCEITUAL:
-    # theta: ângulo usado para cálculos de tensão (Mohr)
-    # mergulho: ângulo geométrico para o plot 3D
-    theta_rad = np.radians(ang_s1_deg)
-    mergulho_deg = 90 - ang_s1_deg
-    mergulho_rad = np.radians(mergulho_deg)
+    # Geometria: Mergulho (beta) é o complemento do ângulo com S1
+    mergulho_rad = np.radians(90 - theta_deg)
     
     reg = params['regime']
     s1, s3 = params['s1'], params['s3']
     s2 = (s1 + s3) / 2
 
-    # Eixos Principais (Anderson)
+    # Eixos por regime (Anderson)
     if reg == 'Normal':
         e1, e2, e3 = np.array([0,0,1]), np.array([1,0,0]), np.array([0,1,0])
     elif reg == 'Transcorrente':
@@ -53,20 +50,19 @@ def plot_3d_block(params):
     else: # Reverso
         e1, e2, e3 = np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1])
 
-    # 2. DEFINIÇÃO DA GEOMETRIA DO PLANO (Baseada no Mergulho)
-    # O plano 'deita' ou 'levanta' em relação ao eixo vertical do bloco
+    # Vetores de face e normal baseados no Mergulho (beta)
     face_dir = -e1 * np.sin(mergulho_rad) + e3 * np.cos(mergulho_rad)
     norm_vec = e1 * np.cos(mergulho_rad) + e3 * np.sin(mergulho_rad)
     
     fig = go.Figure()
 
-    # Cubo Wireframe
+    # Cubo Wireframe centralizado
     v = np.array([[-40,-40,-50], [40,-40,-50], [40,40,-50], [-40,40,-50], [-40,-40,50], [40,-40,50], [40,40,50], [-40,40,50]])
     edges = [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]
     for e in edges:
         fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], mode='lines', line=dict(color='black', width=2), showlegend=False))
 
-    # Construção da Face (Triangulação Manual)
+    # Plano centralizado no (0,0,0)
     size = 42
     p1, p2 = -size * e2 - size * face_dir, size * e2 - size * face_dir
     p3, p4 = size * e2 + size * face_dir, -size * e2 + size * face_dir
@@ -74,7 +70,6 @@ def plot_3d_block(params):
     
     fig.add_trace(go.Mesh3d(x=pts[:,0], y=pts[:,1], z=np.clip(pts[:,2], -50, 50), i=[0,0], j=[1,2], k=[2,3], color='lightblue', opacity=0.8, showlegend=False))
 
-    # 3. VETORES (Garantindo Ortogonalidade)
     def add_arrow(direction, color, name, magnitude, inward=True):
         scale = 0.25
         d = direction / (np.linalg.norm(direction) + 1e-9)
@@ -83,7 +78,7 @@ def plot_3d_block(params):
             start_p = d * (55 + magnitude * scale)
             arrow_d = -d
         else:
-            start_p = np.array([0,0,0])
+            start_p = np.array([0,0,0]) # Origem fixa no centro
             end_p = d * (magnitude * scale + 15)
             arrow_d = d
 
@@ -91,16 +86,16 @@ def plot_3d_block(params):
         fig.add_trace(go.Cone(x=[end_p[0]], y=[end_p[1]], z=[end_p[2]], u=[arrow_d[0]], v=[arrow_d[1]], w=[arrow_d[2]], colorscale=[[0, color], [1, color]], showscale=False, sizemode="absolute", sizeref=12))
         fig.add_trace(go.Scatter3d(x=[start_p[0]*1.15 if inward else end_p[0]*1.2], y=[start_p[1]*1.15 if inward else end_p[1]*1.2], z=[start_p[2]*1.15 if inward else end_p[2]*1.2], mode='text', text=[f"<b>{name}</b>"], textfont=dict(color=color, size=13), showlegend=False))
 
-    # Tensões Principais (S1, S2, S3)
+    # Tensões Principais
     add_arrow(e1, "blue", "S1", s1)
     add_arrow(e2, "green", "S2", s2)
     add_arrow(e3, "red", "S3", s3)
     
-    # Magnitudes baseadas no ângulo S1 (Calculadas via Mohr)
+    # Magnitudes via Mohr (theta)
     sn_val = s1*np.cos(theta_rad)**2 + s3*np.sin(theta_rad)**2
     tau_val = abs(s1-s3)/2*np.sin(2*theta_rad)
     
-    # Sn (Preto) ortogonal ao plano azul e Tau (Laranja) contido nele
+    # Vetores Locais centrados no (0,0,0)
     add_arrow(norm_vec, "black", "Sn", sn_val, False)
     if tau_val > 0.1:
         add_arrow(face_dir, "orange", "Tau", tau_val, False)
