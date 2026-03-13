@@ -41,11 +41,9 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Visualização 3D com órbita centralizada e separação Ângulo S1 vs Mergulho."""
+    """Visualização 3D com rotação travada no centro absoluto (0,0,0)."""
     theta_deg = params['ang_s1']
     theta_rad = np.radians(theta_deg)
-    
-    # Geometria do Plano: Mergulho (beta) é o complemento do ângulo com S1
     mergulho_rad = np.radians(90 - theta_deg)
     
     reg = params['regime']
@@ -60,14 +58,12 @@ def plot_3d_block(params):
     else: # Reverso
         e1, e2, e3 = np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1])
 
-    # Direções Geométricas fixas no Mergulho (beta)
-    # face_dir define a inclinação visual do plano; norm_vec define a perpendicularidade
     face_dir = -e1 * np.sin(mergulho_rad) + e3 * np.cos(mergulho_rad)
     norm_vec = e1 * np.cos(mergulho_rad) + e3 * np.sin(mergulho_rad)
     
     fig = go.Figure()
 
-    # Desenho do Cubo (Wireframe centralizado no 0,0,0)
+    # Desenho do Cubo
     v = np.array([[-40,-40,-50], [40,-40,-50], [40,40,-50], [-40,40,-50], 
                   [-40,-40,50], [40,-40,50], [40,40,50], [-40,40,50]])
     edges = [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]
@@ -75,7 +71,7 @@ def plot_3d_block(params):
         fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], 
                                    mode='lines', line=dict(color='black', width=2), showlegend=False))
 
-    # Construção do Plano (Mesh3d centralizado)
+    # Construção do Plano
     size = 42
     p1, p2 = -size * e2 - size * face_dir, size * e2 - size * face_dir
     p3, p4 = size * e2 + size * face_dir, -size * e2 + size * face_dir
@@ -84,7 +80,7 @@ def plot_3d_block(params):
     fig.add_trace(go.Mesh3d(x=pts[:,0], y=pts[:,1], z=np.clip(pts[:,2], -50, 50), 
                             i=[0,0], j=[1,2], k=[2,3], color='lightblue', opacity=0.8, showlegend=False))
 
-    # Função Auxiliar para Vetores
+    # Função Auxiliar para Vetores (Inalterada)
     def add_arrow(direction, color, name, magnitude, inward=True):
         scale = 0.25
         d = direction / (np.linalg.norm(direction) + 1e-9)
@@ -93,7 +89,7 @@ def plot_3d_block(params):
             start_p = d * (55 + magnitude * scale)
             arrow_d = -d
         else:
-            start_p = np.array([0,0,0]) # Origem no centro do cubo
+            start_p = np.array([0,0,0])
             end_p = d * (magnitude * scale + 15)
             arrow_d = d
 
@@ -106,34 +102,33 @@ def plot_3d_block(params):
                                    z=[start_p[2]*1.15 if inward else end_p[2]*1.2], 
                                    mode='text', text=[f"<b>{name}</b>"], textfont=dict(color=color, size=13), showlegend=False))
 
-    # Renderização das Tensões Principais
+    # Renderização das Tensões
     add_arrow(e1, "blue", "S1", s1)
     add_arrow(e2, "green", "S2", s2)
     add_arrow(e3, "red", "S3", s3)
     
-    # Magnitudes de Tensão (Baseadas no ângulo theta do Mohr)
     sn_val = s1*np.cos(theta_rad)**2 + s3*np.sin(theta_rad)**2
     tau_val = abs(s1-s3)/2*np.sin(2*theta_rad)
     
-    # Vetores Locais (Sn ortogonal ao plano e Tau contido nele)
     add_arrow(norm_vec, "black", "Sn", sn_val, False)
     if tau_val > 0.1:
         add_arrow(face_dir, "orange", "Tau", tau_val, False)
 
-    # Configuração de Câmera e Rotação Centralizada
-    camera_config = dict(
-        eye=dict(x=1.5, y=1.5, z=1.5),
-        center=dict(x=0, y=0, z=0), # Trava o centro da órbita no (0,0,0)
-        up=dict(x=0, y=0, z=1)
-    )
+    # REPARO: Forçar limites simétricos para manter o centro no (0,0,0)
+    # Definimos um limite que caiba os vetores (S1 de 250 MPa -> magnitude*scale ~ 62.5 + 55)
+    lim = 130 
 
     fig.update_layout(
         scene=dict(
-            xaxis_visible=False, 
-            yaxis_visible=False, 
-            zaxis_visible=False, 
-            aspectmode='data',
-            camera=camera_config
+            xaxis=dict(visible=False, range=[-lim, lim]),
+            yaxis=dict(visible=False, range=[-lim, lim]),
+            zaxis=dict(visible=False, range=[-lim, lim]),
+            aspectmode='cube', # Garante que a rotação seja perfeitamente esférica ao redor da origem
+            camera=dict(
+                eye=dict(x=1.5, y=1.5, z=1.5),
+                center=dict(x=0, y=0, z=0), # Trava o pivô no centro exato
+                up=dict(x=0, y=0, z=1)
+            )
         ), 
         height=500, 
         margin=dict(l=0, r=0, t=0, b=0)
