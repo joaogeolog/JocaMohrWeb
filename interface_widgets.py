@@ -1,6 +1,6 @@
 import streamlit as st
 
-DEFAULTS = {'s1': 120.0, 's3': 40.0, 'pp': 20.0, 'alpha': 1.0, 'c': 15.0, 'phi': 30.0, 'ts': 10.0, 'pc': 180.0, 'ang': 30.0, 'regime': 'Normal'}
+DEFAULTS = {'s1': 120.0, 's3': 40.0, 'pp': 20.0, 'alpha': 1.0, 'c': 15.0, 'phi': 30.0, 'ts': 10.0, 'pc': 180.0, 'ang': 30.0, 'mergulho': 60.0, 'regime': 'Normal'}
 
 def sync_widgets(s, t, c):
     val = st.session_state[s]
@@ -22,7 +22,7 @@ def reset_section(keys):
 def dual_input(label, min_v, max_v, key_p, step=1.0):
     s_key, n_key, base_key = f"slide_{key_p}", f"num_{key_p}", f"val_{key_p}"
     if base_key not in st.session_state:
-        st.session_state[base_key] = st.session_state[s_key] = st.session_state[n_key] = float(DEFAULTS[key_p])
+        st.session_state[base_key] = st.session_state[s_key] = st.session_state[n_key] = float(DEFAULTS.get(key_p, 0.0))
     
     c_l, c_s, c_n = st.columns([1, 2, 1])
     c_l.markdown(f"<p style='font-size:0.8em; margin-bottom: -15px;'>{label}</p>", unsafe_allow_html=True)
@@ -55,21 +55,14 @@ def render_bottom_interface():
         with c3:
             hdr, btn = st.columns([2, 1])
             hdr.markdown("<b>3. PLANO</b>", unsafe_allow_html=True)
-            if btn.button("Reiniciar", key="res_pla"): reset_section(['ang'])
-            
-            # Seleção do Regime
+            if btn.button("Reiniciar", key="res_pla"): reset_section(['ang', 'mergulho'])
             st.selectbox("Regime Tectônico", ["Normal", "Transcorrente", "Reverso"], index=0, key='regime_sel')
             
-            # Ângulo com a Tensão Principal S1
-            ang_s1 = dual_input("Ang/S1 (°)", 0, 90, 'ang')
+            # Barra 1: Ângulo com S1 (usado para tensões)
+            dual_input("Ângulo com S1 (°)", 0, 90, 'ang')
             
-            # Mergulho (Complementar ao Ang/S1 no regime Normal)
-            # Criamos uma chave virtual para o Mergulho para exibição
-            mergulho_val = 90.0 - ang_s1
-            c_l, c_s, c_n = st.columns([1, 2, 1])
-            c_l.markdown(f"<p style='font-size:0.8em; margin-bottom: -15px;'>Mergulho (°)</p>", unsafe_allow_html=True)
-            c_s.slider("Mergulho", 0.0, 90.0, value=mergulho_val, disabled=True, label_visibility="collapsed")
-            c_n.number_input("Mergulho", 0.0, 90.0, value=mergulho_val, disabled=True, label_visibility="collapsed")
+            # Barra 2: Mergulho (usado para o gráfico 3D)
+            dual_input("Mergulho (°)", 0, 90, 'mergulho')
             
             st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True) 
             if st.button("Limpar Trajetória", use_container_width=True): 
