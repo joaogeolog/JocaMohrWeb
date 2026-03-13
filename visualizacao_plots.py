@@ -35,10 +35,16 @@ def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_
         st.plotly_chart(fig, use_container_width=True)
 
 def plot_3d_block(params):
-    """Visualização 3D blindada contra KeyError/AttributeError com título interno."""
+    """Visualização 3D com título flutuante para não alterar a altura do container."""
     with st.container(border=True):
-        # Título no canto superior esquerdo dentro do container
-        st.markdown("<h3 style='margin: -5px 0px 5px 0px; font-size: 1.1em; color: #333;'>JocaMohr</h3>", unsafe_allow_html=True)
+        # Título flutuante: position: absolute garante que ele não empurre o gráfico
+        st.markdown("""
+            <div style="position: relative;">
+                <div style="position: absolute; top: -5px; left: 5px; z-index: 10;">
+                    <span style="font-family: sans-serif; font-size: 1.1em; font-weight: bold; color: #333;">JocaMohr</span>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
         
         # Fallbacks seguros
         a_s1 = params.get('ang_s1', params.get('ang', 30.0))
