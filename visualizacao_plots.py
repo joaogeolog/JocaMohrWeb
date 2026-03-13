@@ -3,7 +3,6 @@ import streamlit as st
 import numpy as np
 
 def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, p_x, p_y, falhou, params):
-    # (Mantido o código do Mohr inalterado, pois está correto)
     fig = go.Figure()
     fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
     
@@ -22,7 +21,6 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     fig.add_trace(go.Scatter(x=np.where(m_f & (xc_f >= 0) & (xc_f <= xt_coll), xc_f, np.nan), y=np.where(m_f & (xc_f >= 0) & (xc_f <= xt_coll), yc_f, np.nan), line=dict(color='red', width=4), showlegend=False))
     fig.add_trace(go.Scatter(x=np.where(m_f & (xc_f > xt_coll), xc_f, np.nan), y=np.where(m_f & (xc_f > xt_coll), yc_f, np.nan), line=dict(color='green', width=4), showlegend=False))
     
-    # Trajetória e Ponto
     fig.add_trace(go.Scatter(x=p_x, y=p_y, line=dict(color='orange', width=1.5, dash='dash'), name="Trajetória"))
     fig.add_trace(go.Scatter(x=[sn_p], y=[tn_p], mode='markers', marker=dict(size=14, color='yellow' if falhou else '#2ca02c', line=dict(width=2, color='black')), showlegend=False))
     
@@ -30,7 +28,6 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Visualização 3D com rotação centralizada e ZOOM APROXIMADO no cubo."""
     theta_deg = params['ang_s1']
     theta_rad = np.radians(theta_deg)
     mergulho_rad = np.radians(90 - theta_deg)
@@ -39,7 +36,7 @@ def plot_3d_block(params):
     s1, s3 = params['s1'], params['s3']
     s2 = (s1 + s3) / 2
 
-    # Eixos Anderson (Normal)
+    # Eixos Anderson
     if reg == 'Normal':
         e1, e2, e3 = np.array([0,0,1]), np.array([1,0,0]), np.array([0,1,0])
     elif reg == 'Transcorrente':
@@ -52,20 +49,20 @@ def plot_3d_block(params):
     
     fig = go.Figure()
 
-    # Cubo Wireframe centralizado
+    # Cubo Wireframe
     v = np.array([[-40,-40,-50], [40,-40,-50], [40,40,-50], [-40,40,-50], [-40,-40,50], [40,-40,50], [40,40,50], [-40,40,50]])
     edges = [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]
     for e in edges:
         fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], mode='lines', line=dict(color='black', width=2), showlegend=False))
 
-    # Plano (Mesh3d centralizado)
+    # Plano azul
     size = 42
     p1, p2 = -size * e2 - size * face_dir, size * e2 - size * face_dir
     p3, p4 = size * e2 + size * face_dir, -size * e2 + size * face_dir
     pts = np.array([p1, p2, p3, p4])
-    
     fig.add_trace(go.Mesh3d(x=pts[:,0], y=pts[:,1], z=np.clip(pts[:,2], -50, 50), i=[0,0], j=[1,2], k=[2,3], color='lightblue', opacity=0.8, showlegend=False))
 
+    # FUNÇÃO DE VETORES COM NOMES RESTAURADOS
     def add_arrow(direction, color, name, magnitude, inward=True):
         scale = 0.25
         d = direction / (np.linalg.norm(direction) + 1e-9)
@@ -76,6 +73,7 @@ def plot_3d_block(params):
 
         fig.add_trace(go.Scatter3d(x=[start_p[0], end_p[0]], y=[start_p[1], end_p[1]], z=[start_p[2], end_p[2]], mode='lines', line=dict(color=color, width=6), showlegend=False))
         fig.add_trace(go.Cone(x=[end_p[0]], y=[end_p[1]], z=[end_p[2]], u=[arrow_d[0]], v=[arrow_d[1]], w=[arrow_d[2]], colorscale=[[0, color], [1, color]], showscale=False, sizemode="absolute", sizeref=12))
+        # TEXTO RESTAURADO AQUI
         fig.add_trace(go.Scatter3d(x=[start_p[0]*1.15 if inward else end_p[0]*1.2], y=[start_p[1]*1.15 if inward else end_p[1]*1.2], z=[start_p[2]*1.15 if inward else end_p[2]*1.2], mode='text', text=[f"<b>{name}</b>"], textfont=dict(color=color, size=13), showlegend=False))
 
     # Tensões Principais
@@ -85,23 +83,21 @@ def plot_3d_block(params):
     
     sn_val = s1*np.cos(theta_rad)**2 + s3*np.sin(theta_rad)**2
     tau_val = abs(s1-s3)/2*np.sin(2*theta_rad)
-    
     add_arrow(norm_vec, "black", "Sn", sn_val, False)
     if tau_val > 0.1:
         add_arrow(face_dir, "orange", "Tau", tau_val, False)
 
-    # REPARO DO ZOOM E ROTAÇÃO: Diminui limites e aproxima a câmera (eye)
-    lim = 90  # Diminuí o limite (era 130) para forçar um zoom melhor
+    # Rotação Centralizada + Zoom
+    lim = 95
     fig.update_layout(
         scene=dict(
             xaxis=dict(visible=False, range=[-lim, lim]),
             yaxis=dict(visible=False, range=[-lim, lim]),
             zaxis=dict(visible=False, range=[-lim, lim]),
-            aspectmode='cube', # Rotação perfeitamente centralizada
+            aspectmode='cube',
             camera=dict(
-                # APROXIMAÇÃO: Diminuí o 'eye' de 1.5 para 0.9 para dar zoom
-                eye=dict(x=1.1, y=1.1, z=1.1), 
-                center=dict(x=0, y=0, z=0), # Trava no centro do cubo
+                eye=dict(x=1.1, y=1.1, z=1.1), # Zoom mantido
+                center=dict(x=0, y=0, z=0), # Rotação no centro mantida
                 up=dict(x=0, y=0, z=1)
             )
         ), 
