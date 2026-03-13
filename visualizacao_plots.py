@@ -3,7 +3,8 @@ import streamlit as st
 import numpy as np
 
 def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_p, p_x, p_y, falhou, params):
-    """Interface do Diagrama de Mohr restaurada."""
+    """Interface do Diagrama de Mohr com altura fixa para alinhamento."""
+    # Usando min_height e height no container para garantir alinhamento com o 3D
     with st.container(border=True):
         fig = go.Figure()
         fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
@@ -14,14 +15,12 @@ def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_
         fig.add_trace(go.Scatter(x=x_env[(x_env>0) & (x_env<=xt_coll)], y=y_env[(x_env>0) & (x_env<=xt_coll)], line=dict(color='red', width=2), name="Ruptura por cisalhamento"))
         fig.add_trace(go.Scatter(x=x_env[x_env>xt_coll], y=y_env[x_env>xt_coll], line=dict(color='green', width=2), name="Colapso de poros"))
         
-        # Círculo: Azul para estável, Tracejado Preto para o que 'passou' da borda
+        # Círculo: Azul para estável, Tracejado Preto para falha
         fig.add_trace(go.Scatter(x=xc_s, y=yc_s, line=dict(color='#1f77b4', width=2.5), name="Estado Estável"))
         fig.add_trace(go.Scatter(x=xc_f, y=yc_f, line=dict(color='black', width=1.2, dash='dash'), name="Círculo (Falha)"))
         
-        # Trajetória (Caminho)
+        # Trajetória e Ponto
         fig.add_trace(go.Scatter(x=p_x, y=p_y, line=dict(color='orange', width=1.5, dash='dot'), name="Trajetória"))
-        
-        # Ponto do Plano (sempre no círculo ou travado na borda)
         fig.add_trace(go.Scatter(x=[sn_p], y=[tn_p], mode='markers', 
                                  marker=dict(size=14, color='yellow' if falhou else 'lime', 
                                  line=dict(width=2, color='black')), showlegend=False))
@@ -29,18 +28,20 @@ def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_
         fig.update_layout(
             xaxis=dict(range=[-50, 250], title="σ'n (MPa)"),
             yaxis=dict(range=[0, 100], scaleanchor="x", scaleratio=1, title="τ (MPa)"),
-            template="plotly_white", height=500, margin=dict(l=10, r=10, t=10, b=10),
+            template="plotly_white", 
+            height=480, # Altura ajustada para caber no container sem scroll
+            margin=dict(l=10, r=10, t=10, b=10),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig, use_container_width=True)
 
 def plot_3d_block(params):
-    """Visualização 3D com título flutuante para não alterar a altura do container."""
+    """Visualização 3D com título flutuante e altura casada com o Mohr."""
     with st.container(border=True):
-        # Título flutuante: position: absolute garante que ele não empurre o gráfico
+        # O título agora é absoluto e não empurra o gráfico para baixo
         st.markdown("""
-            <div style="position: relative;">
-                <div style="position: absolute; top: -5px; left: 5px; z-index: 10;">
+            <div style="position: relative; height: 0px;">
+                <div style="position: absolute; top: 0px; left: 5px; z-index: 10;">
                     <span style="font-family: sans-serif; font-size: 1.1em; font-weight: bold; color: #333;">JocaMohr</span>
                 </div>
             </div>
@@ -65,17 +66,20 @@ def plot_3d_block(params):
         
         fig = go.Figure()
 
+        # Grid dashed
         box_v = np.array([[-lim,-lim,-lim], [lim,-lim,-lim], [lim,lim,-lim], [-lim,lim,-lim], [-lim,-lim,lim], [lim,-lim,lim], [lim,lim,lim], [-lim,lim,lim]])
         edges = [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]
         for e in edges:
             fig.add_trace(go.Scatter3d(x=[box_v[e[0]][0], box_v[e[1]][0]], y=[box_v[e[0]][1], box_v[e[1]][1]], z=[box_v[e[0]][2], box_v[e[1]][2]], 
                                      mode='lines', line=dict(color='rgba(200,200,200,0.3)', width=1, dash='dash'), showlegend=False))
         
+        # Bloco central
         v = np.array([[-40,-40,-50], [40,-40,-50], [40,40,-50], [-40,40,-50], [-40,-40,50], [40,-40,50], [40,40,50], [-40,40,50]])
         for e in edges:
             fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], 
                                      mode='lines', line=dict(color='black', width=2), showlegend=False))
 
+        # Plano
         sz = 42
         pts = np.array([-sz*e2-sz*f_dir, sz*e2-sz*f_dir, sz*e2+sz*f_dir, -sz*e2+sz*f_dir])
         fig.add_trace(go.Mesh3d(x=pts[:,0], y=pts[:,1], z=np.clip(pts[:,2], -50, 50), i=[0,0], j=[1,2], k=[2,3], color='lightblue', opacity=0.8))
@@ -98,6 +102,9 @@ def plot_3d_block(params):
         t_val = abs(s1-s3)/2*np.sin(2*theta_rad)
         if t_val > 0.1: add_arrow(f_dir, "orange", "Tau", t_val, False)
 
-        fig.update_layout(scene=dict(xaxis=dict(visible=False), yaxis=dict(visible=False), zaxis=dict(visible=False), aspectmode='cube'),
-                          height=500, margin=dict(l=0, r=0, t=0, b=0))
+        fig.update_layout(
+            scene=dict(xaxis=dict(visible=False), yaxis=dict(visible=False), zaxis=dict(visible=False), aspectmode='cube'),
+            height=480, # Altura casada com o gráfico de Mohr
+            margin=dict(l=0, r=0, t=0, b=0)
+        )
         st.plotly_chart(fig, use_container_width=True)
