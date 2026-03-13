@@ -11,11 +11,13 @@ st.set_page_config(layout="wide", page_title="JocaMohr Web", page_icon="⚒️")
 st.markdown("<style>header {visibility: hidden;} .block-container {padding-top: 1rem !important;}</style>", unsafe_allow_html=True)
 
 # Estado da Sessão e Captura de Parâmetros
-# Usamos .get() com o valor de DEFAULTS para evitar o AttributeError após o rerun
 if 'val_s1' not in st.session_state:
     p_init = {k: float(v) if isinstance(v, (int, float)) else v for k, v in ui.DEFAULTS.items()}
     p_init['ang_s1'] = p_init['ang']
 else:
+    # Capturamos a tração do slider (que é negativa)
+    ts_slider = st.session_state.get('val_ts', ui.DEFAULTS['ts'])
+    
     p_init = {
         "s1": st.session_state.get('val_s1', ui.DEFAULTS['s1']),
         "s3": st.session_state.get('val_s3', ui.DEFAULTS['s3']),
@@ -23,7 +25,7 @@ else:
         "alpha": st.session_state.get('val_alpha', ui.DEFAULTS['alpha']),
         "c": st.session_state.get('val_c', ui.DEFAULTS['c']),
         "phi": st.session_state.get('val_phi', ui.DEFAULTS['phi']),
-        "ts": st.session_state.get('val_ts', ui.DEFAULTS['ts']),
+        "ts": abs(ts_slider), # Passamos o módulo para o motor de cálculo não inverter a física
         "pc": st.session_state.get('val_pc', ui.DEFAULTS['pc']),
         "regime": st.session_state.get('regime_sel', ui.DEFAULTS['regime']),
         "ang_s1": st.session_state.get('val_ang', ui.DEFAULTS['ang'])
