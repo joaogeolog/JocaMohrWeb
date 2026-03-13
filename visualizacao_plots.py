@@ -31,13 +31,10 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Visualização 3D com correção do mergulho (90 - ang_s1)."""
+    """Visualização 3D com correção de ortogonalidade Sn/Tau para o mergulho (90 - ang_s1)."""
     ang_s1 = params['ang_s1']
-    # REPARO: O mergulho do plano é o complemento do ângulo com S1
-    mergulho_rad = np.radians(90 - ang_s1)
-    
-    # Mantendo a lógica de vetores intacta para o Mohr
-    ang_rad = np.radians(ang_s1)
+    # Mergulho real (dip)
+    dip_rad = np.radians(90 - ang_s1)
     
     reg = params['regime']
     s1, s3 = params['s1'], params['s3']
@@ -51,9 +48,10 @@ def plot_3d_block(params):
     else: # Reverso
         e1, e2, e3 = np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1])
 
-    # Vetores Sn e Tau (mantidos conforme versão anterior)
-    norm = e1 * np.cos(ang_rad) + e3 * np.sin(ang_rad)
-    tau_dir = -e1 * np.sin(ang_rad) + e3 * np.cos(ang_rad)
+    # REPARO VETORIAL: Definindo a face do plano e sua normal ortogonal
+    # O plano 'deita' ou 'levanta' baseado no dip_rad
+    face_dir = -e1 * np.sin(dip_rad) + e3 * np.cos(dip_rad)
+    norm_corrigida = e1 * np.cos(dip_rad) + e3 * np.sin(dip_rad)
     
     fig = go.Figure()
 
@@ -63,18 +61,15 @@ def plot_3d_block(params):
     for e in edges:
         fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], mode='lines', line=dict(color='black', width=2), showlegend=False))
 
-    # Plano com triangulação manual usando o mergulho reparado
+    # Plano com triangulação manual usando a geometria de face
     size = 42
-    # Recalculando vetores de face para o Mesh3d respeitar o mergulho
-    plano_dir = -e1 * np.sin(mergulho_rad) + e3 * np.cos(mergulho_rad)
-    
-    p1, p2 = -size * e2 - size * plano_dir, size * e2 - size * plano_dir
-    p3, p4 = size * e2 + size * plano_dir, -size * e2 + size * plano_dir
+    p1, p2 = -size * e2 - size * face_dir, size * e2 - size * face_dir
+    p3, p4 = size * e2 + size * face_dir, -size * e2 + size * face_dir
     pts = np.array([p1, p2, p3, p4])
     
     fig.add_trace(go.Mesh3d(x=pts[:,0], y=pts[:,1], z=np.clip(pts[:,2], -50, 50), i=[0,0], j=[1,2], k=[2,3], color='lightblue', opacity=0.8, showlegend=False))
 
-    # Função para Vetores (Inalterada)
+    # Função para Vetores (Inalterada no Layout)
     def add_arrow(direction, color, name, magnitude, inward=True):
         scale = 0.25
         d = direction / (np.linalg.norm(direction) + 1e-9)
@@ -91,11 +86,17 @@ def plot_3d_block(params):
         fig.add_trace(go.Cone(x=[end_p[0]], y=[end_p[1]], z=[end_p[2]], u=[arrow_d[0]], v=[arrow_d[1]], w=[arrow_d[2]], colorscale=[[0, color], [1, color]], showscale=False, sizemode="absolute", sizeref=12))
         fig.add_trace(go.Scatter3d(x=[start_p[0]*1.15 if inward else end_p[0]*1.2], y=[start_p[1]*1.15 if inward else end_p[1]*1.2], z=[start_p[2]*1.15 if inward else end_p[2]*1.2], mode='text', text=[f"<b>{name}</b>"], textfont=dict(color=color, size=13), showlegend=False))
 
+    # Tensões Principais
     add_arrow(e1, "blue", "S1", s1)
     add_arrow(e2, "green", "S2", s2)
     add_arrow(e3, "red", "S3", s3)
-    add_arrow(norm, "black", "Sn", s1*np.cos(ang_rad)**2 + s3*np.sin(ang_rad)**2, False)
-    add_arrow(tau_dir, "orange", "Tau", abs(s1-s3)/2*np.sin(2*ang_rad), False)
+    
+    # COMPONENTES LOCAIS: Agora Sn é ortogonal ao plano azul e Tau está contido nele.
+    sn_val = s1*np.cos(np.radians(ang_s1))**2 + s3*np.sin(np.radians(ang_s1))**2
+    tau_val = abs(s1-s3)/2*np.sin(2*np.radians(ang_s1))
+    
+    add_arrow(norm_corrigida, "black", "Sn", sn_val, False)
+    add_arrow(face_dir, "orange", "Tau", tau_val, False)
 
     fig.update_layout(scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False, aspectmode='data', camera=dict(eye=dict(x=1.5, y=1.5, z=1.5))), height=500, margin=dict(l=0,r=0,t=0,b=0))
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
