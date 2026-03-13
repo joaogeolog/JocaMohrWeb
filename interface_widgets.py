@@ -10,7 +10,6 @@ def update_from_ang():
     st.session_state['val_ang'] = st.session_state['slide_ang']
     st.session_state['num_ang'] = st.session_state['slide_ang']
     
-    # No Transcorrente, o mergulho não muda (travado em 90)
     if st.session_state.regime_sel != "Transcorrente":
         novo_mergulho = 90.0 - st.session_state['val_ang']
         st.session_state['val_mergulho'] = novo_mergulho
@@ -29,25 +28,30 @@ def update_from_mergulho():
 
 def reset_angles_on_regime():
     """Reinicia os ângulos para o padrão e aplica trava se necessário."""
-    reset_section(['ang'])
+    reset_section(['ang'], rerun=False) # Não rerun aqui para evitar loop infinito no selectbox
     if st.session_state.regime_sel == "Transcorrente":
         st.session_state['val_mergulho'] = 90.0
         st.session_state['slide_mergulho'] = 90.0
         st.session_state['num_mergulho'] = 90.0
+    st.rerun()
 
-def reset_section(keys):
+def reset_section(keys, rerun=True):
+    """Limpa as variáveis e força o redesenho da página."""
     for k in keys:
         for pfx in ['val_', 'slide_', 'num_']:
             st.session_state[pfx + k] = float(DEFAULTS[k])
+    
     if 'ang' in keys:
-        st.session_state.path_x, st.session_state.path_y, st.session_state.ponto_fisico = [], [], {'sn': 0.0, 'tn': 0.0}
+        st.session_state.path_x, st.session_state.path_y = [], []
+        st.session_state.ponto_fisico = {'sn': 0.0, 'tn': 0.0}
         m_val = 90.0 - DEFAULTS['ang']
         st.session_state['val_mergulho'] = st.session_state['slide_mergulho'] = st.session_state['num_mergulho'] = m_val
+    
+    if rerun:
+        st.rerun()
 
 def dual_input_custom(label, min_v, max_v, key_p, on_change_callback, disabled=False):
-    """Versão customizada com suporte a desabilitação."""
     s_key, n_key = f"slide_{key_p}", f"num_{key_p}"
-    
     c_l, c_s, c_n = st.columns([1, 2, 1])
     c_l.markdown(f"<p style='font-size:0.85em; margin-top:5px;'>{label}</p>", unsafe_allow_html=True)
     c_s.slider(label, float(min_v), float(max_v), key=s_key, on_change=on_change_callback, label_visibility="collapsed", disabled=disabled)
@@ -66,7 +70,7 @@ def dual_input(label, min_v, max_v, key_p, step=1.0):
 
 def render_bottom_interface():
     if 'val_ang' not in st.session_state:
-        reset_section(['ang'])
+        reset_section(['ang'], rerun=False)
 
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
@@ -74,7 +78,9 @@ def render_bottom_interface():
         with c1:
             hdr_col1, btn_col1 = st.columns([2, 1])
             hdr_col1.markdown("<b style='font-size:0.8em;'>1. TENSÕES (MPa)</b>", unsafe_allow_html=True)
-            if btn_col1.button("Reiniciar", key="res_tens"): reset_section(['s1', 's3', 'pp'])
+            if btn_col1.button("Reiniciar", key="res_tens"): 
+                reset_section(['s1', 's3', 'pp'])
+            
             dual_input("S1 (MPa)", 0, 250, 's1')
             dual_input("S3 (MPa)", 0, 250, 's3')
             dual_input("P. Poros (MPa)", 0, 100, 'pp')
@@ -82,7 +88,9 @@ def render_bottom_interface():
         with c2:
             hdr_col2, btn_col2 = st.columns([2, 1])
             hdr_col2.markdown("<b style='font-size:0.8em;'>2. ROCHA</b>", unsafe_allow_html=True)
-            if btn_col2.button("Reiniciar", key="res_roc"): reset_section(['c', 'phi', 'ts', 'pc', 'alpha'])
+            if btn_col2.button("Reiniciar", key="res_roc"): 
+                reset_section(['c', 'phi', 'ts', 'pc', 'alpha'])
+            
             dual_input("Coesão (MPa)", 0, 100, 'c')
             dual_input("Ângulo Atrito (°)", 0, 90, 'phi')
             dual_input("Tração (MPa)", 0, 50, 'ts')
@@ -92,17 +100,16 @@ def render_bottom_interface():
         with c3:
             hdr_col3, btn_col3 = st.columns([2, 1])
             hdr_col3.markdown("<b style='font-size:0.8em;'>3. PLANO</b>", unsafe_allow_html=True)
-            if btn_col3.button("Reiniciar", key="res_pla"): reset_section(['ang'])
+            if btn_col3.button("Reiniciar", key="res_pla"): 
+                reset_section(['ang'])
             
             st.selectbox("Regime Tectônico", ["Normal", "Transcorrente", "Reverso"], 
                          index=0, key='regime_sel', on_change=reset_angles_on_regime)
             
             is_trans = (st.session_state.regime_sel == "Transcorrente")
             
-            # Ângulo com S1: Sempre editável
             dual_input_custom("Ângulo com S1 (°)", 0, 90, 'ang', update_from_ang)
             
-            # Mergulho: Travado em 90 se for Transcorrente
             if is_trans:
                 st.session_state['slide_mergulho'] = 90.0
                 st.session_state['num_mergulho'] = 90.0
@@ -116,3 +123,4 @@ def render_bottom_interface():
             st.write("") 
             if st.button("Limpar Trajetória", use_container_width=True): 
                 st.session_state.path_x, st.session_state.path_y = [], []
+                st.rerun()
