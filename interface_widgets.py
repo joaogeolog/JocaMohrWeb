@@ -24,36 +24,32 @@ def dual_input(label, min_v, max_v, key_p, step=1.0):
     return st.session_state[base_key]
 
 def render_bottom_interface():
-    if 'path_x' not in st.session_state:
-        st.session_state.path_x, st.session_state.path_y, st.session_state.ponto_fisico = [], [], {'sn': 0.0, 'tn': 0.0}
-
-    # CSS para botões de reiniciar pequenos
-    st.markdown("<style>div[data-testid='column'] button {font-size: 8px !important; padding: 2px !important; height: 20px !important;}</style>", unsafe_allow_html=True)
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown("<b style='font-size:0.8em;'>1. TENSÕES (MPa)</b>", unsafe_allow_html=True)
-        if st.button("Reset Tensão", key="r1"): reset_section(['s1', 's3', 'pp', 'alpha']); st.rerun()
-        s1 = dual_input("S1", 0.0, 250.0, "s1")
-        s3 = dual_input("S3", 0.0, 250.0, "s3")
-        pp = dual_input("P. Poros", 0.0, 250.0, "pp")
-        alpha = dual_input("Biot", 0.0, 1.0, "alpha", 0.01)
-
-    with c2:
-        st.markdown("<b style='font-size:0.8em;'>2. ROCHA</b>", unsafe_allow_html=True)
-        if st.button("Reset Rocha", key="r2"): reset_section(['c', 'phi', 'ts', 'pc']); st.rerun()
-        c = dual_input("Coesão", 0.0, 100.0, "c")
-        phi = dual_input("Atrito (°)", 0.0, 60.0, "phi")
-        ts = dual_input("Tração", 0.0, 50.0, "ts")
-        pc = dual_input("Colapso", 0.0, 250.0, "pc")
-
-    with c3:
-        st.markdown("<b style='font-size:0.8em;'>3. PLANO</b>", unsafe_allow_html=True)
-        if st.button("Reset Plano", key="r3"): reset_section(['ang']); st.session_state["regime_sel"] = "Normal"; st.rerun()
-        reg = st.selectbox("Regime", ["Normal", "Transcorrente", "Reverso"], key="regime_sel", label_visibility="collapsed")
-        ang = dual_input("Ang/S1", 0.0, 90.0, "ang", 0.1)
-        if st.button("Limpar Trajetória", use_container_width=True):
-            st.session_state.path_x, st.session_state.path_y = [], []
-            st.session_state.ponto_fisico = {'sn': 0.0, 'tn': 0.0}; st.rerun()
+    """Renderiza a interface de sliders com moldura de contorno."""
+    with st.container(border=True):
+        st.markdown("<b style='font-size:1.1em;'>CONTROLES DO MODELO</b>", unsafe_allow_html=True)
+        st.divider()
+        
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown("<b style='font-size:0.8em;'>1. TENSÕES (MPa)</b>", unsafe_allow_html=True)
+            if st.button("Reset Tensão"): reset_section(['s1', 's3', 'pp'])
+            s1 = dual_input("S1", 0, 250, 's1')
+            s3 = dual_input("S3", 0, 250, 's3')
+            pp = dual_input("P. Poros", 0, 100, 'pp')
+            alpha = st.slider("Biot (α)", 0.0, 1.0, float(DEFAULTS['alpha']), step=0.01, key='val_alpha')
             
-    return {"s1": s1, "s3": s3, "pp": pp, "alpha": alpha, "c": c, "phi": phi, "ts": ts, "pc": pc, "regime": reg, "ang_s1": ang}
+        with c2:
+            st.markdown("<b style='font-size:0.8em;'>2. ROCHA</b>", unsafe_allow_html=True)
+            if st.button("Reset Rocha"): reset_section(['c', 'phi', 'ts', 'pc'])
+            c = dual_input("Coesão", 0, 100, 'c')
+            phi = dual_input("Atrito (°)", 0, 90, 'phi')
+            ts = dual_input("Tração", 0, 50, 'ts')
+            pc = dual_input("Colapso", 0, 500, 'pc')
+            
+        with c3:
+            st.markdown("<b style='font-size:0.8em;'>3. PLANO</b>", unsafe_allow_html=True)
+            if st.button("Reset Plano"): reset_section(['ang'])
+            regime = st.selectbox("Regime Tectônico", ["Normal", "Transcorrente", "Reverso"], index=0, key='regime_sel')
+            ang = dual_input("Ang/S1", 0, 90, 'ang')
+            if st.button("Limpar Trajetória"): 
+                st.session_state.path_x, st.session_state.path_y = [], []
