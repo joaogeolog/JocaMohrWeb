@@ -3,8 +3,7 @@ import streamlit as st
 import numpy as np
 
 def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_p, p_x, p_y, falhou, params):
-    """Interface do Diagrama de Mohr com altura fixa para alinhamento."""
-    # Usando min_height e height no container para garantir alinhamento com o 3D
+    """Interface do Diagrama de Mohr restaurada para os 500px originais."""
     with st.container(border=True):
         fig = go.Figure()
         fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
@@ -29,19 +28,19 @@ def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_
             xaxis=dict(range=[-50, 250], title="σ'n (MPa)"),
             yaxis=dict(range=[0, 100], scaleanchor="x", scaleratio=1, title="τ (MPa)"),
             template="plotly_white", 
-            height=480, # Altura ajustada para caber no container sem scroll
+            height=500, # Voltando para a altura original que você gosta
             margin=dict(l=10, r=10, t=10, b=10),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig, use_container_width=True)
 
 def plot_3d_block(params):
-    """Visualização 3D com título flutuante e altura casada com o Mohr."""
+    """Visualização 3D com título flutuante e altura casada com a base do Mohr."""
     with st.container(border=True):
-        # O título agora é absoluto e não empurra o gráfico para baixo
+        # Título flutuante que não ocupa espaço na pilha vertical
         st.markdown("""
             <div style="position: relative; height: 0px;">
-                <div style="position: absolute; top: 0px; left: 5px; z-index: 10;">
+                <div style="position: absolute; top: -5px; left: 0px; z-index: 10;">
                     <span style="font-family: sans-serif; font-size: 1.1em; font-weight: bold; color: #333;">JocaMohr</span>
                 </div>
             </div>
@@ -66,20 +65,17 @@ def plot_3d_block(params):
         
         fig = go.Figure()
 
-        # Grid dashed
         box_v = np.array([[-lim,-lim,-lim], [lim,-lim,-lim], [lim,lim,-lim], [-lim,lim,-lim], [-lim,-lim,lim], [lim,-lim,lim], [lim,lim,lim], [-lim,lim,lim]])
         edges = [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]
         for e in edges:
             fig.add_trace(go.Scatter3d(x=[box_v[e[0]][0], box_v[e[1]][0]], y=[box_v[e[0]][1], box_v[e[1]][1]], z=[box_v[e[0]][2], box_v[e[1]][2]], 
                                      mode='lines', line=dict(color='rgba(200,200,200,0.3)', width=1, dash='dash'), showlegend=False))
         
-        # Bloco central
         v = np.array([[-40,-40,-50], [40,-40,-50], [40,40,-50], [-40,40,-50], [-40,-40,50], [40,-40,50], [40,40,50], [-40,40,50]])
         for e in edges:
             fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], 
                                      mode='lines', line=dict(color='black', width=2), showlegend=False))
 
-        # Plano
         sz = 42
         pts = np.array([-sz*e2-sz*f_dir, sz*e2-sz*f_dir, sz*e2+sz*f_dir, -sz*e2+sz*f_dir])
         fig.add_trace(go.Mesh3d(x=pts[:,0], y=pts[:,1], z=np.clip(pts[:,2], -50, 50), i=[0,0], j=[1,2], k=[2,3], color='lightblue', opacity=0.8))
@@ -104,7 +100,7 @@ def plot_3d_block(params):
 
         fig.update_layout(
             scene=dict(xaxis=dict(visible=False), yaxis=dict(visible=False), zaxis=dict(visible=False), aspectmode='cube'),
-            height=480, # Altura casada com o gráfico de Mohr
+            height=500, # Agora o 3D também tem 500px, e o título flutua no topo
             margin=dict(l=0, r=0, t=0, b=0)
         )
         st.plotly_chart(fig, use_container_width=True)
