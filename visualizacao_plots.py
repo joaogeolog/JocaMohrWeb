@@ -3,10 +3,15 @@ import streamlit as st
 import numpy as np
 
 def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, p_x, p_y, falhou, params):
-    """Renderiza o Diagrama de Mohr com eixos de Tensão Efetiva e Moldura."""
+    """Renderiza o Diagrama de Mohr com eixos de Tensão Efetiva, Moldura e linha em x=0."""
     with st.container(border=True):
         fig = go.Figure()
+        
+        # Linha horizontal (Eixo Sn)
         fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
+        
+        # NOVA: Linha vertical em x=0 (Eixo Tau)
+        fig.add_shape(type="line", x0=0, y0=0, x1=0, y1=100, line=dict(color="black", width=2))
         
         # Envoltórias
         fig.add_trace(go.Scatter(x=x_env[x_env<=0], y=y_env[x_env<=0], line=dict(color='blue', width=1.5), showlegend=False))
@@ -35,7 +40,7 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Visualização 3D com órbita travada, nomes persistentes e moldura."""
+    """Visualização 3D (Mantida igual)"""
     with st.container(border=True):
         ang_s1 = params['ang_s1']
         theta_rad, mergulho_rad = np.radians(ang_s1), np.radians(90 - ang_s1)
