@@ -4,12 +4,15 @@ import geostruct_engine as eng
 import interface_widgets as ui
 import visualizacao_plots as viz
 
+# 1. Configuração Base
 st.set_page_config(layout="wide", page_title="JocaMohr Web", page_icon="⚒️")
 st.markdown("<style>header {visibility: hidden;} .block-container {padding-top: 1rem !important;}</style>", unsafe_allow_html=True)
 
+# 2. Inicialização
 if 'val_s1' not in st.session_state:
     p_init = {k: float(v) if isinstance(v, (int, float)) else v for k, v in ui.DEFAULTS.items()}
-    p_init['ang_s1'], p_init['ts'] = p_init['ang'], abs(ui.DEFAULTS['ts'])
+    p_init['ang_s1'] = p_init['ang']
+    p_init['ts'] = abs(ui.DEFAULTS['ts'])
     st.session_state.path_x, st.session_state.path_y = [], []
 else:
     p_init = {
@@ -25,29 +28,25 @@ else:
         "ang_s1": st.session_state.get('val_ang', ui.DEFAULTS['ang'])
     }
 
+# 3. Cálculos
 s1_eff = p_init["s1"] - (p_init["alpha"] * p_init["pp"])
 s3_eff = p_init["s3"] - (p_init["alpha"] * p_init["pp"])
 
 x_env, y_env, xt_coll = eng.calcular_envoltoria(p_init["ts"], p_init["pc"], p_init["c"], p_init["phi"])
+sn, tn, falhou = eng.calcular_ponto_com_trava(s1_eff, s3_eff, p_init["ang_s1"], x_env, y_env, st.session_state.get('ponto_fisico', {}))
 
-# sn, tn: ponto final | falhou: status | ponto_borda: interseção se houver
-sn, tn, falhou, ponto_borda = eng.calcular_ponto_com_trava(s1_eff, s3_eff, p_init["ang_s1"], x_env, y_env, st.session_state.get('ponto_fisico', {}))
-
-# Se o motor detectou que cruzamos a borda na volta, grava o ponto da borda primeiro
-if ponto_borda:
-    st.session_state.path_x.append(ponto_borda[0])
-    st.session_state.path_y.append(ponto_borda[1])
-
-# Grava o ponto atual
-if not st.session_state.path_x or (abs(sn - st.session_state.path_x[-1]) > 0.01):
+# Atualiza rastro
+if not st.session_state.path_x or (abs(sn - st.session_state.path_x[-1]) > 0.02):
     st.session_state.path_x.append(sn)
     st.session_state.path_y.append(tn)
 
 xc_s, yc_s, xc_f, yc_f, env_high = eng.obter_geometria_v18((s1_eff+s3_eff)/2, (s1_eff-s3_eff)/2, x_env, y_env)
 
+# 4. Layout
 col_3d, col_mohr = st.columns([1, 2])
 with col_3d: viz.plot_3d_block(p_init)
 with col_mohr: viz.plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn, tn, st.session_state.path_x, st.session_state.path_y, falhou, p_init)
 
 ui.render_bottom_interface()
+
 st.session_state.ponto_fisico = {'sn': sn, 'tn': tn}
