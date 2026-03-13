@@ -7,20 +7,12 @@ import visualizacao_plots as viz
 # 1. Configuração Base
 st.set_page_config(layout="wide", page_title="JocaMohr Web", page_icon="⚒️")
 
-# Estilo e Título
+# Estilo para manter o topo limpo e sem o header padrão do Streamlit
 st.markdown("""
     <style>
         header {visibility: hidden;} 
         .block-container {padding-top: 1rem !important;}
-        .main-title {
-            text-align: center; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: #1E1E1E;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-        }
     </style>
-    <h1 class="main-title">JocaMohr Web</h1>
 """, unsafe_allow_html=True)
 
 # 2. Inicialização do Estado da Sessão
