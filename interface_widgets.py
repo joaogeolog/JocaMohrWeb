@@ -19,11 +19,10 @@ def update_from_mergulho():
     st.session_state['val_ang'] = st.session_state['slide_ang'] = st.session_state['num_ang'] = a_val
 
 def reset_angles_on_regime():
-    """Apenas sinaliza o reset, sem chamar rerun dentro do callback."""
     reset_section(['ang'], rerun=False)
     if st.session_state.regime_sel == "Transcorrente":
         st.session_state['val_mergulho'] = st.session_state['slide_mergulho'] = st.session_state['num_mergulho'] = 90.0
-    st.session_state['do_rerun'] = True # Sinaliza para o corpo principal reiniciar
+    st.session_state['do_rerun'] = True 
 
 def reset_section(keys, rerun=True):
     for k in keys:
@@ -69,7 +68,12 @@ def render_bottom_interface():
             hdr_col2, btn_col2 = st.columns([2, 1])
             hdr_col2.markdown("<b style='font-size:0.8em;'>2. ROCHA</b>", unsafe_allow_html=True)
             if btn_col2.button("Reiniciar", key="res_roc"): reset_section(['c', 'phi', 'ts', 'pc', 'alpha'])
-            dual_input("Coesão (MPa)", 0, 100, 'c'); dual_input("Ângulo Atrito (°)", 0, 90, 'phi'); dual_input("Tração (MPa)", 0, 50, 'ts'); dual_input("Colapso (MPa)", 0, 500, 'pc'); dual_input("Biot (adim.)", 0.0, 1.0, 'alpha', step=0.01)
+            # Limites atualizados conforme solicitado:
+            dual_input("Coesão (MPa)", 0, 50, 'c')
+            dual_input("Ângulo Atrito (°)", 0, 50, 'phi')
+            dual_input("Tração (MPa)", 0, 50, 'ts')
+            dual_input("Colapso (MPa)", 0, 250, 'pc')
+            dual_input("Biot (adim.)", 0.0, 1.0, 'alpha', step=0.01)
         with c3:
             hdr_col3, btn_col3 = st.columns([2, 1])
             hdr_col3.markdown("<b style='font-size:0.8em;'>3. PLANO</b>", unsafe_allow_html=True)
@@ -84,7 +88,6 @@ def render_bottom_interface():
                 st.session_state.path_x, st.session_state.path_y = [], []
                 st.rerun()
 
-    # Se houve sinalização de rerun fora do callback, executa aqui
     if st.session_state.get('do_rerun'):
         st.session_state['do_rerun'] = False
         st.rerun()
