@@ -3,7 +3,7 @@ import streamlit as st
 import numpy as np
 
 def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, p_x, p_y, falhou, params):
-    # (Código do Mohr permanece idêntico)
+    """Renderiza o Diagrama de Mohr."""
     fig = go.Figure()
     fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
     
@@ -30,22 +30,9 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Visualização 3D com moldura de contorno real na interface."""
+    """Visualização 3D com moldura de contorno e correção de NameError."""
     
-    # Estilização do Container 3D
-    st.markdown("""
-        <style>
-        /* Seleciona o container de coluna onde o 3D é renderizado */
-        [data-testid="stVerticalBlock"] > div:has(div.stPlotlyChart) {
-            border: 1px solid #e6e9ef;
-            border-radius: 8px;
-            padding: 10px;
-            background-color: #ffffff;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    with st.container(border=True): # O parâmetro border=True do Streamlit 1.30+ resolve isso nativamente
+    with st.container(border=True):
         theta_deg = params['ang_s1']
         theta_rad = np.radians(theta_deg)
         mergulho_rad = np.radians(90 - theta_deg)
@@ -67,7 +54,7 @@ def plot_3d_block(params):
         
         fig = go.Figure()
 
-        # Cubo Wireframe (Bounding Box interna)
+        # Bounding Box Interna
         b = lim
         box_v = np.array([[-b,-b,-b], [b,-b,-b], [b,b,-b], [-b,b,-b], [-b,-b,b], [b,-b,b], [b,b,b], [-b,b,b]])
         for e in [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]:
@@ -85,15 +72,20 @@ def plot_3d_block(params):
         pts = np.array([-size*e2-size*face_dir, size*e2-size*face_dir, size*e2+size*face_dir, -size*e2+size*face_dir])
         fig.add_trace(go.Mesh3d(x=pts[:,0], y=pts[:,1], z=np.clip(pts[:,2], -50, 50), i=[0,0], j=[1,2], k=[2,3], color='lightblue', opacity=0.8, showlegend=False))
 
+        # Função add_arrow CORRIGIDA (en_p em todos os lugares)
         def add_arrow(dir, col, name, mag, inward=True):
             scale = 0.25; d = dir / (np.linalg.norm(dir) + 1e-9)
-            st_p, en_p, ar_d = (d*55, d*(55+mag*scale), -d) if inward else ([0,0,0], d*(mag*scale+15), d)
-            fig.add_trace(go.Scatter3d(x=[st_p[0], en_p[0]], y=[st_p[1], end_p[1]], z=[st_p[2], end_p[2]], mode='lines', line=dict(color=col, width=6), showlegend=False))
+            if inward:
+                en_p, st_p, ar_d = d*55, d*(55+mag*scale), -d
+            else:
+                st_p, en_p, ar_d = np.array([0,0,0]), d*(mag*scale+15), d
+            
+            fig.add_trace(go.Scatter3d(x=[st_p[0], en_p[0]], y=[st_p[1], en_p[1]], z=[st_p[2], en_p[2]], mode='lines', line=dict(color=col, width=6), showlegend=False))
             fig.add_trace(go.Cone(x=[en_p[0]], y=[en_p[1]], z=[en_p[2]], u=[ar_d[0]], v=[ar_d[1]], w=[ar_d[2]], colorscale=[[0, col], [1, col]], showscale=False, sizemode="absolute", sizeref=12))
             txt_p = (st_p if inward else en_p) + d*15
             fig.add_trace(go.Scatter3d(x=[txt_p[0]], y=[txt_p[1]], z=[txt_p[2]], mode='text', text=[f"<b>{name}</b>"], textfont=dict(color=col, size=14), showlegend=False))
 
-        # Tensões
+        # Vetores
         add_arrow(e1, "blue", "S1", s1); add_arrow(e2, "green", "S2", s2); add_arrow(e3, "red", "S3", s3)
         sn_val = s1*np.cos(theta_rad)**2 + s3*np.sin(theta_rad)**2
         add_arrow(norm_vec, "black", "Sn", sn_val, False)
