@@ -1,6 +1,5 @@
 import streamlit as st
 
-# DEFAULTS atualizado: Tração (ts) agora é -10.0
 DEFAULTS = {'s1': 120.0, 's3': 40.0, 'pp': 20.0, 'alpha': 1.0, 'c': 15.0, 'phi': 30.0, 'ts': -10.0, 'pc': 180.0, 'ang': 30.0, 'regime': 'Normal'}
 
 def sync_widgets(s, t, c):
@@ -71,8 +70,7 @@ def render_bottom_interface():
             if btn_col2.button("Reiniciar", key="res_roc"): reset_section(['c', 'phi', 'ts', 'pc', 'alpha'])
             dual_input("Coesão (MPa)", 0, 50, 'c')
             dual_input("Ângulo Atrito (°)", 0, 50, 'phi')
-            # ATUALIZADO: Tração de -50 a 0
-            dual_input("Tração (MPa)", -50, 0, 'ts')
+            dual_input("Tração (MPa)", -50, 0, 'ts') # Slider negativo para visualização
             dual_input("Colapso (MPa)", 0, 250, 'pc')
             dual_input("Biot (adim.)", 0.0, 1.0, 'alpha', step=0.01)
         with c3:
