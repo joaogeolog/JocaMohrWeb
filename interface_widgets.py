@@ -33,7 +33,6 @@ def dual_input(label, min_v, max_v, key_p, step=1.0):
 def render_bottom_interface():
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
-        
         with c1:
             hdr, btn = st.columns([2, 1])
             hdr.markdown("<b>1. TENSÕES (MPa)</b>", unsafe_allow_html=True)
@@ -41,7 +40,6 @@ def render_bottom_interface():
             dual_input("S1 (MPa)", 0, 250, 's1')
             dual_input("S3 (MPa)", 0, 250, 's3')
             dual_input("P. Poros (MPa)", 0, 100, 'pp')
-            
         with c2:
             hdr, btn = st.columns([2, 1])
             hdr.markdown("<b>2. ROCHA</b>", unsafe_allow_html=True)
@@ -51,13 +49,12 @@ def render_bottom_interface():
             dual_input("Tração (MPa)", 0, 50, 'ts')
             dual_input("Colapso (MPa)", 0, 500, 'pc')
             dual_input("Biot (adim.)", 0.0, 1.0, 'alpha', step=0.01)
-            
         with c3:
             hdr, btn = st.columns([2, 1])
             hdr.markdown("<b>3. PLANO</b>", unsafe_allow_html=True)
             if btn.button("Reiniciar", key="res_pla"): reset_section(['ang'])
             st.selectbox("Regime Tectônico", ["Normal", "Transcorrente", "Reverso"], index=0, key='regime_sel')
-            dual_input("Mergulho (°)", 0, 90, 'ang')
+            dual_input("Ang/S1 (°)", 0, 90, 'ang')
             st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True) 
             if st.button("Limpar Trajetória", use_container_width=True): 
                 st.session_state.path_x, st.session_state.path_y = [], []
