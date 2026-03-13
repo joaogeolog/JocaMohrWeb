@@ -3,7 +3,7 @@ import streamlit as st
 import numpy as np
 
 def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_p, p_x, p_y, falhou, params):
-    """Renderiza o Diagrama de Mohr com proteção para arrays vazios no realce."""
+    """Renderiza o Diagrama de Mohr com eixos técnicos e proteção contra erros de array."""
     with st.container(border=True):
         fig = go.Figure()
         
@@ -11,7 +11,7 @@ def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_
         fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
         fig.add_shape(type="line", x0=0, y0=0, x1=0, y1=100, line=dict(color="black", width=2))
         
-        # Máscaras para os três regimes
+        # Filtros para os três regimes da envoltória
         m_tra = x_env <= 0
         m_cis = (x_env > 0) & (x_env <= xt_coll)
         m_col = x_env > xt_coll
@@ -21,20 +21,24 @@ def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_
         fig.add_trace(go.Scatter(x=x_env[m_cis], y=y_env[m_cis], line=dict(color='red', width=2.5), name="Ruptura por cisalhamento"))
         fig.add_trace(go.Scatter(x=x_env[m_col], y=y_env[m_col], line=dict(color='green', width=2.5), name="Colapso de poros"))
         
-        # Realce visual no trecho de falha (PROTEÇÃO CONTRA ERRO AQUI)
-        if any(env_high) and len(x_env[env_high]) > 0:
-            fig.add_trace(go.Scatter(x=x_env[env_high], y=y_env[env_high], 
-                                     line=dict(color='yellow', width=5, opacity=0.3), 
-                                     showlegend=False, hoverinfo='skip'))
+        # REALCE DE FALHA COM PROTEÇÃO ROBUSTA
+        try:
+            if env_high is not None and any(env_high):
+                x_h = x_env[env_high]
+                y_h = y_env[env_high]
+                if len(x_h) > 0:
+                    fig.add_trace(go.Scatter(x=x_h, y=y_h, 
+                                             line=dict(color='yellow', width=5, opacity=0.3), 
+                                             showlegend=False, hoverinfo='skip'))
+        except Exception:
+            pass # Se falhar o realce, o app continua rodando sem ele
 
-        # Geometria do Círculo de Mohr (Sólido/Tracejado)
+        # Geometria do Círculo (Sólido/Tracejado)
         fig.add_trace(go.Scatter(x=xc_s, y=yc_s, line=dict(color='#1f77b4', width=2.5), name="Estado Estável"))
         fig.add_trace(go.Scatter(x=xc_f, y=yc_f, line=dict(color='black', width=1.2, dash='dash'), name="Círculo (Falha)"))
         
-        # Histórico da Trajetória (Caminho)
+        # Histórico da Trajetória e Ponto Atual
         fig.add_trace(go.Scatter(x=p_x, y=p_y, line=dict(color='orange', width=1.5, dash='dot'), name="Trajetória"))
-        
-        # Ponto do Plano de Fratura
         fig.add_trace(go.Scatter(x=[sn_p], y=[tn_p], mode='markers', 
                                  marker=dict(size=14, color='yellow' if falhou else 'lime', 
                                  line=dict(width=2, color='black')), showlegend=False))
@@ -48,15 +52,14 @@ def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_
         st.plotly_chart(fig, use_container_width=True)
 
 def plot_3d_block(params):
-    """Visualização 3D completa com título flutuante."""
+    """Visualização 3D completa com título JocaMohr sobreposto."""
     with st.container(border=True):
         st.markdown('<div style="position: relative; height: 0px;"><div style="position: absolute; top: -5px; left: 0px; z-index: 10;"><span style="font-family: sans-serif; font-size: 1.1em; font-weight: bold; color: #333;">JocaMohr</span></div></div>', unsafe_allow_html=True)
         
         a_s1 = params.get('ang_s1', 30.0)
         reg = params.get('regime', 'Normal')
         s1, s3 = params.get('s1', 120.0), params.get('s3', 40.0)
-        s2 = (s1 + s3) / 2
-        theta_rad, merg_rad, lim = np.radians(a_s1), np.radians(90 - a_s1), 120 
+        s2, theta_rad, merg_rad, lim = (s1 + s3) / 2, np.radians(a_s1), np.radians(90 - a_s1), 120 
 
         if reg == 'Normal': e1, e2, e3 = np.array([0,0,1]), np.array([1,0,0]), np.array([0,1,0])
         elif reg == 'Transcorrente': e1, e2, e3 = np.array([0,1,0]), np.array([0,0,1]), np.array([1,0,0])
