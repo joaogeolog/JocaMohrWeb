@@ -2,8 +2,8 @@ import plotly.graph_objects as go
 import streamlit as st
 import numpy as np
 
+# Função plot_mohr permanece igual, apenas adicionei um key fixo
 def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, p_x, p_y, falhou, params):
-    """Renderiza o Diagrama de Mohr com eixos Sn e Tau em x=0."""
     with st.container(border=True):
         fig = go.Figure()
         fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
@@ -29,10 +29,10 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
             template="plotly_white", height=500, margin=dict(l=10, r=10, t=10, b=10),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
-        st.plotly_chart(fig, use_container_width=True, key="mohr_plot")
+        # Key fixo para evitar recarregamento total
+        st.plotly_chart(fig, use_container_width=True, key="mohr_graph")
 
 def plot_3d_block(params):
-    """Visualização 3D com órbita livre e persistente."""
     with st.container(border=True):
         ang_s1 = params['ang_s1']
         theta_rad, mergulho_rad = np.radians(ang_s1), np.radians(90 - ang_s1)
@@ -49,11 +49,12 @@ def plot_3d_block(params):
 
         b = lim
         box_v = np.array([[-b,-b,-b], [b,-b,-b], [b,b,-b], [-b,b,-b], [-b,-b,b], [b,-b,b], [b,b,b], [-b,b,b]])
-        for e in [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]:
+        edges = [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]
+        for e in edges:
             fig.add_trace(go.Scatter3d(x=[box_v[e[0]][0], box_v[e[1]][0]], y=[box_v[e[0]][1], box_v[e[1]][1]], z=[box_v[e[0]][2], box_v[e[1]][2]], mode='lines', line=dict(color='rgba(200,200,200,0.3)', width=1, dash='dash'), showlegend=False))
         
         v = np.array([[-40,-40,-50], [40,-40,-50], [40,40,-50], [-40,40,-50], [-40,-40,50], [40,-40,50], [40,40,50], [-40,40,50]])
-        for e in [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]:
+        for e in edges:
             fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], mode='lines', line=dict(color='black', width=2), showlegend=False))
 
         size = 42
@@ -73,7 +74,20 @@ def plot_3d_block(params):
         tau_val = abs(s1-s3)/2*np.sin(2*theta_rad)
         if tau_val > 0.1: add_arrow(face_dir, "orange", "Tau", tau_val, False)
 
-        fig.update_layout(scene=dict(xaxis=dict(visible=False, range=[-lim, lim]), yaxis=dict(visible=False, range=[-lim, lim]), zaxis=dict(visible=False, range=[-lim, lim]), aspectmode='cube'), height=500, margin=dict(l=0, r=0, t=0, b=0))
-        # O segredo é usar o uirevision para manter o estado da câmera
-        fig.update_layout(uirevision='constant')
-        st.plotly_chart(fig, use_container_width=True, key="3d_plot")
+        # A MÁGICA ESTÁ AQUI: uirevision
+        # Usamos o 'regime' como controle: a câmera só reseta se você mudar o regime.
+        # Caso contrário, ela mantém a posição atual do usuário.
+        fig.update_layout(
+            uirevision=reg, 
+            scene=dict(
+                xaxis=dict(visible=False, range=[-lim, lim]), 
+                yaxis=dict(visible=False, range=[-lim, lim]), 
+                zaxis=dict(visible=False, range=[-lim, lim]), 
+                aspectmode='cube',
+                camera=dict(eye=dict(x=1.1, y=1.1, z=1.1))
+            ), 
+            height=500, margin=dict(l=0, r=0, t=0, b=0)
+        )
+        
+        # Key fixo para o widget manter o estado interno do Plotly
+        st.plotly_chart(fig, use_container_width=True, key="3d_block_graph")
