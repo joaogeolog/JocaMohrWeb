@@ -7,18 +7,14 @@ import visualizacao_plots as viz
 # Configuração Base
 st.set_page_config(layout="wide", page_title="JocaMohr Web", page_icon="⚒️")
 
-# Estilo para limpeza e espaçamento
-st.markdown("<style>header {visibility: hidden;} .block-container {padding-top: 1rem !important;}</style>", unsafe_allow_html=True)
-
-# Inicialização Robusta do Estado da Sessão
+# 1. Captura e Tratamento de Parâmetros
 if 'val_s1' not in st.session_state:
-    # Primeira carga ou após erro: força os DEFAULTS
     p_init = {k: float(v) if isinstance(v, (int, float)) else v for k, v in ui.DEFAULTS.items()}
     p_init['ang_s1'] = p_init['ang']
-    p_init['ts'] = abs(ui.DEFAULTS['ts'])
+    p_init['ts_mod'] = abs(ui.DEFAULTS['ts'])
 else:
-    # Captura segura usando .get() para evitar AttributeError
-    ts_val = st.session_state.get('val_ts', ui.DEFAULTS['ts'])
+    # Garantimos o módulo da tração para o motor de cálculo
+    ts_slider = st.session_state.get('val_ts', ui.DEFAULTS['ts'])
     p_init = {
         "s1": st.session_state.get('val_s1', ui.DEFAULTS['s1']),
         "s3": st.session_state.get('val_s3', ui.DEFAULTS['s3']),
@@ -26,37 +22,48 @@ else:
         "alpha": st.session_state.get('val_alpha', ui.DEFAULTS['alpha']),
         "c": st.session_state.get('val_c', ui.DEFAULTS['c']),
         "phi": st.session_state.get('val_phi', ui.DEFAULTS['phi']),
-        "ts": abs(ts_val),
+        "ts_mod": abs(ts_slider),
         "pc": st.session_state.get('val_pc', ui.DEFAULTS['pc']),
         "regime": st.session_state.get('regime_sel', ui.DEFAULTS['regime']),
         "ang_s1": st.session_state.get('val_ang', ui.DEFAULTS['ang'])
     }
 
-# Cálculos Geomecânicos (Sn e Tau)
+# 2. Cálculos de Envoltória e Tensões Efetivas
 s1_eff = p_init["s1"] - (p_init["alpha"] * p_init["pp"])
 s3_eff = p_init["s3"] - (p_init["alpha"] * p_init["pp"])
 
-# Chamadas ao motor de cálculo
-x_env, y_env, xt_coll = eng.calcular_envoltoria(p_init["ts"], p_init["pc"], p_init["c"], p_init["phi"])
-sn, tn, falhou = eng.calcular_ponto_com_trava(s1_eff, s3_eff, p_init["ang_s1"], x_env, y_env, p_init["ts"], p_init["pc"], st.session_state.get('ponto_fisico', {'sn': 0.0, 'tn': 0.0}))
-xc_f, yc_f, res_c, xc_o, yc_o = eng.obter_geometria_v18((s1_eff+s3_eff)/2, (s1_eff-s3_eff)/2, x_env, y_env, p_init["ts"], p_init["pc"])
+# x_env e y_env definem a "fronteira" da rocha
+x_env, y_env, xt_coll = eng.calcular_envoltoria(p_init["ts_mod"], p_init["pc"], p_init["c"], p_init["phi"])
 
-# Layout Superior: 1/3 Cubo | 2/3 Mohr
+# 3. Lógica de Interseção (O ponto "trava" na borda se tentar sair)
+# Calculamos o ponto teórico pretendido (sn_target, tn_target)
+sn_target = (s1_eff + s3_eff)/2 + (s1_eff - s3_eff)/2 * np.cos(np.radians(2 * p_init["ang_s1"]))
+tn_target = abs((s1_eff - s3_eff)/2 * np.sin(np.radians(2 * p_init["ang_s1"])))
+
+# Buscamos a interseção com a envoltória usando o histórico
+path_x = st.session_state.get('path_x', [])
+path_y = st.session_state.get('path_y', [])
+
+# A nova função eng.calcular_ponto_com_intersecao retorna o ponto na borda se houver falha
+sn, tn, falhou = eng.calcular_ponto_com_intersecao(sn_target, tn_target, path_x, path_y, x_env, y_env)
+
+# Geometria dos círculos para o Plotly
+xc_f, yc_f, res_c, xc_o, yc_o = eng.obter_geometria_v18((s1_eff+s3_eff)/2, (s1_eff-s3_eff)/2, x_env, y_env, p_init["ts_mod"], p_init["pc"])
+
+# 4. Interface e Gráficos
 col_3d, col_mohr = st.columns([1, 2])
-
 with col_3d: 
-    # Passamos o dicionário p_init garantido
     viz.plot_3d_block(p_init)
-
 with col_mohr: 
-    viz.plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn, tn, st.session_state.get('path_x', []), st.session_state.get('path_y', []), falhou, p_init)
+    viz.plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn, tn, path_x, path_y, falhou, p_init)
 
-# Layout Inferior: Painel de Controles
 ui.render_bottom_interface()
 
-# Persistência de Trajetória (evita erros de lista inexistente)
-st.session_state.ponto_fisico = {'sn': sn, 'tn': tn}
+# 5. Atualização da Trajetória
 if 'path_x' not in st.session_state:
     st.session_state.path_x, st.session_state.path_y = [], []
-st.session_state.path_x.append(sn)
-st.session_state.path_y.append(tn)
+
+# Só adicionamos ao path se o ponto mudou significativamente (evita duplicatas paradas na borda)
+if not path_x or (abs(sn - path_x[-1]) > 0.01 or abs(tn - path_y[-1]) > 0.01):
+    st.session_state.path_x.append(sn)
+    st.session_state.path_y.append(tn)
