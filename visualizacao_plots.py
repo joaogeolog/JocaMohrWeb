@@ -31,8 +31,14 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Visualização 3D estável com triangulação manual."""
-    ang_rad = np.radians(params['ang_s1'])
+    """Visualização 3D com correção do mergulho (90 - ang_s1)."""
+    ang_s1 = params['ang_s1']
+    # REPARO: O mergulho do plano é o complemento do ângulo com S1
+    mergulho_rad = np.radians(90 - ang_s1)
+    
+    # Mantendo a lógica de vetores intacta para o Mohr
+    ang_rad = np.radians(ang_s1)
+    
     reg = params['regime']
     s1, s3 = params['s1'], params['s3']
     s2 = (s1 + s3) / 2
@@ -45,7 +51,7 @@ def plot_3d_block(params):
     else: # Reverso
         e1, e2, e3 = np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1])
 
-    # Vetores Sn e Tau
+    # Vetores Sn e Tau (mantidos conforme versão anterior)
     norm = e1 * np.cos(ang_rad) + e3 * np.sin(ang_rad)
     tau_dir = -e1 * np.sin(ang_rad) + e3 * np.cos(ang_rad)
     
@@ -57,15 +63,18 @@ def plot_3d_block(params):
     for e in edges:
         fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], mode='lines', line=dict(color='black', width=2), showlegend=False))
 
-    # Plano (Triangulação Manual 0-1-2 e 0-2-3)
+    # Plano com triangulação manual usando o mergulho reparado
     size = 42
-    p1, p2 = -size * e2 - size * tau_dir, size * e2 - size * tau_dir
-    p3, p4 = size * e2 + size * tau_dir, -size * e2 + size * tau_dir
+    # Recalculando vetores de face para o Mesh3d respeitar o mergulho
+    plano_dir = -e1 * np.sin(mergulho_rad) + e3 * np.cos(mergulho_rad)
+    
+    p1, p2 = -size * e2 - size * plano_dir, size * e2 - size * plano_dir
+    p3, p4 = size * e2 + size * plano_dir, -size * e2 + size * plano_dir
     pts = np.array([p1, p2, p3, p4])
     
     fig.add_trace(go.Mesh3d(x=pts[:,0], y=pts[:,1], z=np.clip(pts[:,2], -50, 50), i=[0,0], j=[1,2], k=[2,3], color='lightblue', opacity=0.8, showlegend=False))
 
-    # Função para Vetores
+    # Função para Vetores (Inalterada)
     def add_arrow(direction, color, name, magnitude, inward=True):
         scale = 0.25
         d = direction / (np.linalg.norm(direction) + 1e-9)
