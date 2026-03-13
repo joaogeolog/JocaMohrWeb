@@ -3,34 +3,25 @@ import streamlit as st
 import numpy as np
 
 def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_p, p_x, p_y, falhou, params):
-    """Renderiza o Mohr com círculo colapsado e realce na envoltória."""
+    """Interface do Diagrama de Mohr restaurada."""
     with st.container(border=True):
         fig = go.Figure()
-        
-        # Eixos
         fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
         fig.add_shape(type="line", x0=0, y0=0, x1=0, y1=100, line=dict(color="black", width=2))
         
-        # Envoltórias com realce (Highlight)
-        for cond, col, name in [
-            (x_env <= 0, 'blue', "Ruptura por tração"),
-            ((x_env > 0) & (x_env <= xt_coll), 'red', "Ruptura por cisalhamento"),
-            (x_env > xt_coll, 'green', "Colapso de poros")
-        ]:
-            fig.add_trace(go.Scatter(x=x_env[cond], y=y_env[cond], line=dict(color=col, width=2), name=name))
-            
-            # Desenha o realce se houver falha naquele trecho
-            high_cond = cond & env_high
-            if any(high_cond):
-                fig.add_trace(go.Scatter(x=x_env[high_cond], y=y_env[high_cond], 
-                                         line=dict(color=col, width=5), showlegend=False, hoverinfo='skip'))
-
-        # Círculo: Sólido para estável, Tracejado para falha
+        # Envoltórias
+        fig.add_trace(go.Scatter(x=x_env[x_env<=0], y=y_env[x_env<=0], line=dict(color='blue', width=2), name="Ruptura por tração"))
+        fig.add_trace(go.Scatter(x=x_env[(x_env>0) & (x_env<=xt_coll)], y=y_env[(x_env>0) & (x_env<=xt_coll)], line=dict(color='red', width=2), name="Ruptura por cisalhamento"))
+        fig.add_trace(go.Scatter(x=x_env[x_env>xt_coll], y=y_env[x_env>xt_coll], line=dict(color='green', width=2), name="Colapso de poros"))
+        
+        # Círculo: Azul para estável, Tracejado Preto para o que 'passou' da borda
         fig.add_trace(go.Scatter(x=xc_s, y=yc_s, line=dict(color='#1f77b4', width=2.5), name="Estado Estável"))
         fig.add_trace(go.Scatter(x=xc_f, y=yc_f, line=dict(color='black', width=1.2, dash='dash'), name="Círculo (Falha)"))
         
-        # Trajetória e Ponto
+        # Trajetória (Caminho)
         fig.add_trace(go.Scatter(x=p_x, y=p_y, line=dict(color='orange', width=1.5, dash='dot'), name="Trajetória"))
+        
+        # Ponto do Plano (sempre no círculo ou travado na borda)
         fig.add_trace(go.Scatter(x=[sn_p], y=[tn_p], mode='markers', 
                                  marker=dict(size=14, color='yellow' if falhou else 'lime', 
                                  line=dict(width=2, color='black')), showlegend=False))
@@ -44,9 +35,12 @@ def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_
         st.plotly_chart(fig, use_container_width=True)
 
 def plot_3d_block(params):
-    """Visualização 3D blindada contra KeyError/AttributeError."""
+    """Visualização 3D blindada contra KeyError/AttributeError com título interno."""
     with st.container(border=True):
-        # Fallbacks seguros: se a chave não existir, usa o valor padrão
+        # Título no canto superior esquerdo dentro do container
+        st.markdown("<h3 style='margin: -5px 0px 5px 0px; font-size: 1.1em; color: #333;'>JocaMohr</h3>", unsafe_allow_html=True)
+        
+        # Fallbacks seguros
         a_s1 = params.get('ang_s1', params.get('ang', 30.0))
         reg = params.get('regime', 'Normal')
         s1 = params.get('s1', 100.0)
@@ -56,7 +50,6 @@ def plot_3d_block(params):
         merg_rad = np.radians(90 - a_s1)
         s2, lim = (s1 + s3) / 2, 120 
 
-        # Eixos por regime
         if reg == 'Normal': e1, e2, e3 = np.array([0,0,1]), np.array([1,0,0]), np.array([0,1,0])
         elif reg == 'Transcorrente': e1, e2, e3 = np.array([0,1,0]), np.array([0,0,1]), np.array([1,0,0])
         else: e1, e2, e3 = np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1])
@@ -66,25 +59,21 @@ def plot_3d_block(params):
         
         fig = go.Figure()
 
-        # Grid dashed
         box_v = np.array([[-lim,-lim,-lim], [lim,-lim,-lim], [lim,lim,-lim], [-lim,lim,-lim], [-lim,-lim,lim], [lim,-lim,lim], [lim,lim,lim], [-lim,lim,lim]])
         edges = [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]
         for e in edges:
             fig.add_trace(go.Scatter3d(x=[box_v[e[0]][0], box_v[e[1]][0]], y=[box_v[e[0]][1], box_v[e[1]][1]], z=[box_v[e[0]][2], box_v[e[1]][2]], 
                                      mode='lines', line=dict(color='rgba(200,200,200,0.3)', width=1, dash='dash'), showlegend=False))
         
-        # Bloco sólido
         v = np.array([[-40,-40,-50], [40,-40,-50], [40,40,-50], [-40,40,-50], [-40,-40,50], [40,-40,50], [40,40,50], [-40,40,50]])
         for e in edges:
             fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], 
                                      mode='lines', line=dict(color='black', width=2), showlegend=False))
 
-        # Plano
         sz = 42
         pts = np.array([-sz*e2-sz*f_dir, sz*e2-sz*f_dir, sz*e2+sz*f_dir, -sz*e2+sz*f_dir])
         fig.add_trace(go.Mesh3d(x=pts[:,0], y=pts[:,1], z=np.clip(pts[:,2], -50, 50), i=[0,0], j=[1,2], k=[2,3], color='lightblue', opacity=0.8))
 
-        # Setas
         def add_arrow(direction, color, name, magnitude, inward=True):
             scale, d = 0.22, direction / (np.linalg.norm(direction) + 1e-9)
             if inward: ep, sp, ar_d, off = d*55, d*(55+magnitude*scale), -d, 15
