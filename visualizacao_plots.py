@@ -4,7 +4,6 @@ import numpy as np
 
 def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, p_x, p_y, falhou, params):
     """Renderiza o Diagrama de Mohr envolto em uma moldura."""
-    
     with st.container(border=True):
         fig = go.Figure()
         fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
@@ -31,16 +30,14 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
         fig.update_layout(
             xaxis=dict(range=[-50, 250], title="Sigma n (MPa)"),
             yaxis=dict(range=[0, 100], scaleanchor="x", scaleratio=1, title="Tau (MPa)"),
-            template="plotly_white",
-            height=500,
+            template="plotly_white", height=500,
             margin=dict(l=10, r=10, t=10, b=10),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Visualização 3D com moldura de contorno e correção de clipping."""
-    
+    """Visualização 3D com órbita travada, nomes persistentes e moldura."""
     with st.container(border=True):
         theta_deg = params['ang_s1']
         theta_rad = np.radians(theta_deg)
@@ -63,7 +60,7 @@ def plot_3d_block(params):
         
         fig = go.Figure()
 
-        # Bounding Box Interna
+        # Bounding Box (Tracejada)
         b = lim
         box_v = np.array([[-b,-b,-b], [b,-b,-b], [b,b,-b], [-b,b,-b], [-b,-b,b], [b,-b,b], [b,b,b], [-b,b,b]])
         for e in [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]:
@@ -107,5 +104,4 @@ def plot_3d_block(params):
         fig.update_layout(scene=dict(xaxis=dict(visible=False, range=[-lim, lim]), yaxis=dict(visible=False, range=[-lim, lim]), zaxis=dict(visible=False, range=[-lim, lim]), 
                                      aspectmode='cube', camera=dict(eye=dict(x=1.1, y=1.1, z=1.1), center=dict(x=0, y=0, z=0))), 
                           height=500, margin=dict(l=0, r=0, t=0, b=0))
-        
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
