@@ -1,64 +1,37 @@
 import streamlit as st
-import numpy as np
 import geostruct_engine as eng
 import interface_widgets as ui
-import visualizacao_plots as viz
+import visualizacao_3d as v3d
+import visualizacao_mohr as vmohr
 
-# 1. Configuração Base
-st.set_page_config(layout="wide", page_title="JocaMohr Web", page_icon="⚒️")
-st.markdown("<style>header {visibility: hidden;} .block-container {padding-top: 1rem !important;}</style>", unsafe_allow_html=True)
+st.set_page_config(layout="wide", page_title="JocaMohr Web")
+st.markdown("""<style>header {visibility: hidden;} .main .block-container {padding-top: 0rem !important; margin-top: -30px !important;}</style>""", unsafe_allow_html=True)
 
-# 2. Inicialização Robusta do Estado
 if 'val_s1' not in st.session_state:
-    # Primeira execução: carrega tudo dos DEFAULTS
-    for k, v in ui.DEFAULTS.items():
-        base_key = f"val_{k}"
-        if base_key not in st.session_state:
-            st.session_state[base_key] = float(v) if isinstance(v, (int, float)) else v
-    
-    # Garante as chaves de sincronia inicial
-    st.session_state['val_ang'] = float(ui.DEFAULTS['ang'])
-    st.session_state['val_mergulho'] = 90.0 - st.session_state['val_ang']
+    for k, v in ui.DEFAULTS.items(): st.session_state[f'val_{k}'] = v
     st.session_state.path_x, st.session_state.path_y = [], []
 
-# Montagem do dicionário de parâmetros para os cálculos
-p_init = {
-    "s1": st.session_state.get('val_s1', ui.DEFAULTS['s1']),
-    "s3": st.session_state.get('val_s3', ui.DEFAULTS['s3']),
-    "pp": st.session_state.get('val_pp', ui.DEFAULTS['pp']),
-    "alpha": st.session_state.get('val_alpha', ui.DEFAULTS['alpha']),
-    "c": st.session_state.get('val_c', ui.DEFAULTS['c']),
-    "phi": st.session_state.get('val_phi', ui.DEFAULTS['phi']),
-    "ts": 10.0,
-    "pc": st.session_state.get('val_pc', ui.DEFAULTS['pc']),
-    "regime": st.session_state.get('regime_sel', ui.DEFAULTS['regime']),
-    "ang_s1": st.session_state.get('val_ang', ui.DEFAULTS['ang']),
-    "val_mergulho": st.session_state.get('val_mergulho', 90.0 - st.session_state.get('val_ang', 30.0))
-}
+# Coleta de Parâmetros e Forçamento de Sincronia
+p = {k: st.session_state.get(f'val_{k}', v) for k, v in ui.DEFAULTS.items()}
+p['regime'] = st.session_state.get('regime_sel', 'Normal')
+p['ang_s1'] = st.session_state.get('val_ang', 30.0)
+p['val_mergulho'] = st.session_state.get('val_mergulho', 60.0) # Força o mergulho pro 3D
 
-# 3. Processamento Geomecânico
-s1_eff = p_init["s1"] - (p_init["alpha"] * p_init["pp"])
-s3_eff = p_init["s3"] - (p_init["alpha"] * p_init["pp"])
+# Cálculos
+s1_e = p['s1'] - (p['alpha'] * p['pp'])
+s3_e = p['s3'] - (p['alpha'] * p['pp'])
+xe, ye, xt = eng.calcular_envoltoria(p['ts'], p['pc'], p['c'], p['phi'])
+sn, tn, fail = eng.calcular_ponto_com_trava(s1_e, s3_e, p['ang_s1'], xe, ye, st.session_state.get('ponto', {}))
 
-x_env, y_env, xt_coll = eng.calcular_envoltoria(10.0, p_init["pc"], p_init["c"], p_init["phi"])
+if not st.session_state.path_x or abs(sn - st.session_state.path_x[-1]) > 0.05:
+    st.session_state.path_x.append(sn); st.session_state.path_y.append(tn)
 
-# Mohr usa Angulo com S1
-sn, tn, falhou = eng.calcular_ponto_com_trava(s1_eff, s3_eff, p_init["ang_s1"], x_env, y_env, st.session_state.get('ponto_fisico', {}))
+xcs, ycs, xcf, ycf, m_high = eng.obter_geometria_v18((s1_e+s3_e)/2, (s1_e-s3_e)/2, xe, ye)
 
-# Atualização da Trajetória
-if not st.session_state.path_x or (abs(sn - st.session_state.path_x[-1]) > 0.05):
-    st.session_state.path_x.append(sn)
-    st.session_state.path_y.append(tn)
+# Renderização
+c_3d, c_mohr = st.columns([1, 2])
+with c_3d: v3d.render_3d_block(p)
+with c_mohr: vmohr.render_mohr_plot(xe, ye, xt, xcs, ycs, xcf, ycf, m_high, sn, tn, st.session_state.path_x, st.session_state.path_y, fail)
 
-xc_s, yc_s, xc_f, yc_f, env_high = eng.obter_geometria_v18((s1_eff+s3_eff)/2, (s1_eff-s3_eff)/2, x_env, y_env)
-
-# 4. Visualização
-col_3d, col_mohr = st.columns([1, 2])
-with col_3d: 
-    viz.plot_3d_block(p_init)
-with col_mohr: 
-    viz.plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn, tn, st.session_state.path_x, st.session_state.path_y, falhou, p_init)
-
-# 5. Interface (Sliders)
-ui.render_bottom_interface()
-st.session_state.ponto_fisico = {'sn': sn, 'tn': tn}
+ui.render_ui()
+st.session_state.ponto = {'sn': sn, 'tn': tn}
