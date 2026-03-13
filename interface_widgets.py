@@ -17,45 +17,66 @@ def dual_input(label, min_v, max_v, key_p, step=1.0):
     if base_key not in st.session_state:
         st.session_state[base_key] = st.session_state[s_key] = st.session_state[n_key] = float(DEFAULTS[key_p])
     
-    c_l, c_s, c_n = st.columns([1, 2, 1])
+    c_l, c_s, c_n = st.columns([1.2, 2, 1])
     c_l.markdown(f"<p style='font-size:0.85em; margin-top:5px;'>{label}</p>", unsafe_allow_html=True)
     c_s.slider(label, float(min_v), float(max_v), step=float(step), key=s_key, on_change=sync_widgets, args=(s_key, n_key, base_key), label_visibility="collapsed")
     c_n.number_input(label, float(min_v), float(max_v), step=float(step), key=n_key, on_change=sync_widgets, args=(n_key, s_key, base_key), label_visibility="collapsed")
     return st.session_state[base_key]
 
 def render_bottom_interface():
-    """Renderiza os controles com Biot padronizado com slider e campo numérico."""
+    """Renderiza os controles com divisores visuais entre as seções."""
+    
+    # CSS para criar a linha vertical e espaçamento entre grupos
+    st.markdown("""
+        <style>
+        .group-container {
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .v-line {
+            border-left: 1px solid #e6e9ef;
+            height: 100%;
+            margin-left: -15px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
     with st.container(border=True):
-        c1, c2, c3 = st.columns(3)
+        c1, spacer1, c2, spacer2, c3 = st.columns([1, 0.05, 1, 0.05, 1])
         
         with c1:
-            hdr_col1, btn_col1 = st.columns([2, 1])
-            hdr_col1.markdown("<b style='font-size:0.8em;'>1. TENSÕES (MPa)</b>", unsafe_allow_html=True)
+            hdr_col1, btn_col1 = st.columns([2, 1.2])
+            hdr_col1.markdown("<b style='font-size:0.8em; color:#31333F;'>1. TENSÕES (MPa)</b>", unsafe_allow_html=True)
             if btn_col1.button("Reiniciar", key="res_tens"): reset_section(['s1', 's3', 'pp'])
             
-            s1 = dual_input("S1", 0, 250, 's1')
-            s3 = dual_input("S3", 0, 250, 's3')
-            pp = dual_input("P. Poros", 0, 100, 'pp')
+            dual_input("S1", 0, 250, 's1')
+            dual_input("S3", 0, 250, 's3')
+            dual_input("P. Poros", 0, 100, 'pp')
             
+        with spacer1:
+            st.markdown('<div class="v-line"></div>', unsafe_allow_html=True)
+
         with c2:
-            hdr_col2, btn_col2 = st.columns([2, 1])
-            hdr_col2.markdown("<b style='font-size:0.8em;'>2. ROCHA</b>", unsafe_allow_html=True)
+            hdr_col2, btn_col2 = st.columns([2, 1.2])
+            hdr_col2.markdown("<b style='font-size:0.8em; color:#31333F;'>2. ROCHA</b>", unsafe_allow_html=True)
             if btn_col2.button("Reiniciar", key="res_roc"): reset_section(['c', 'phi', 'ts', 'pc', 'alpha'])
             
-            c = dual_input("Coesão", 0, 100, 'c')
-            phi = dual_input("Atrito (°)", 0, 90, 'phi')
-            ts = dual_input("Tração", 0, 50, 'ts')
-            pc = dual_input("Colapso", 0, 500, 'pc')
-            # Biot agora usa dual_input com step de 0.01
-            alpha = dual_input("Biot (α)", 0.0, 1.0, 'alpha', step=0.01)
+            dual_input("Coesão", 0, 100, 'c')
+            dual_input("Atrito (°)", 0, 90, 'phi')
+            dual_input("Tração", 0, 50, 'ts')
+            dual_input("Colapso", 0, 500, 'pc')
+            dual_input("Biot (α)", 0.0, 1.0, 'alpha', step=0.01)
             
+        with spacer2:
+            st.markdown('<div class="v-line"></div>', unsafe_allow_html=True)
+
         with c3:
-            hdr_col3, btn_col3 = st.columns([2, 1])
-            hdr_col3.markdown("<b style='font-size:0.8em;'>3. PLANO</b>", unsafe_allow_html=True)
+            hdr_col3, btn_col3 = st.columns([2, 1.2])
+            hdr_col3.markdown("<b style='font-size:0.8em; color:#31333F;'>3. PLANO</b>", unsafe_allow_html=True)
             if btn_col3.button("Reiniciar", key="res_pla"): reset_section(['ang'])
             
             st.selectbox("Regime Tectônico", ["Normal", "Transcorrente", "Reverso"], index=0, key='regime_sel')
-            ang = dual_input("Ang/S1", 0, 90, 'ang')
+            dual_input("Ang/S1", 0, 90, 'ang')
             st.write("") 
             if st.button("Limpar Trajetória", use_container_width=True): 
                 st.session_state.path_x, st.session_state.path_y = [], []
