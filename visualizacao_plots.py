@@ -30,7 +30,7 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Visualização 3D com moldura de contorno e correção de NameError."""
+    """Visualização 3D com moldura de contorno e correção de clipping para tensões altas."""
     
     with st.container(border=True):
         theta_deg = params['ang_s1']
@@ -42,6 +42,7 @@ def plot_3d_block(params):
         s2 = (s1 + s3) / 2
         lim = 120 
 
+        # Eixos Anderson
         if reg == 'Normal':
             e1, e2, e3 = np.array([0,0,1]), np.array([1,0,0]), np.array([0,1,0])
         elif reg == 'Transcorrente':
@@ -54,14 +55,14 @@ def plot_3d_block(params):
         
         fig = go.Figure()
 
-        # Bounding Box Interna
+        # Bounding Box Interna (Tracejada)
         b = lim
         box_v = np.array([[-b,-b,-b], [b,-b,-b], [b,b,-b], [-b,b,-b], [-b,-b,b], [b,-b,b], [b,b,b], [-b,b,b]])
         for e in [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]:
             fig.add_trace(go.Scatter3d(x=[box_v[e[0]][0], box_v[e[1]][0]], y=[box_v[e[0]][1], box_v[e[1]][1]], z=[box_v[e[0]][2], box_v[e[1]][2]], 
                                        mode='lines', line=dict(color='rgba(200,200,200,0.3)', width=1, dash='dash'), showlegend=False))
 
-        # Cubo Geológico
+        # Cubo Geológico (Wireframe)
         v = np.array([[-40,-40,-50], [40,-40,-50], [40,40,-50], [-40,40,-50], [-40,-40,50], [40,-40,50], [40,40,50], [-40,40,50]])
         for e in [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]:
             fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], 
@@ -72,25 +73,32 @@ def plot_3d_block(params):
         pts = np.array([-size*e2-size*face_dir, size*e2-size*face_dir, size*e2+size*face_dir, -size*e2+size*face_dir])
         fig.add_trace(go.Mesh3d(x=pts[:,0], y=pts[:,1], z=np.clip(pts[:,2], -50, 50), i=[0,0], j=[1,2], k=[2,3], color='lightblue', opacity=0.8, showlegend=False))
 
-        # Função add_arrow CORRIGIDA (en_p em todos os lugares)
+        # Função add_arrow com ajuste dinâmico para evitar clipping de legendas
         def add_arrow(dir, col, name, mag, inward=True):
-            scale = 0.25; d = dir / (np.linalg.norm(dir) + 1e-9)
+            scale = 0.22 # Reduzido para dar mais margem no topo
+            d = dir / (np.linalg.norm(dir) + 1e-9)
+            
             if inward:
                 en_p, st_p, ar_d = d*55, d*(55+mag*scale), -d
+                # Offset dinâmico: se muito alto, o texto cola na flecha para não sumir
+                offset = 8 if mag > 180 else 15
+                txt_p = st_p + d * offset
             else:
                 st_p, en_p, ar_d = np.array([0,0,0]), d*(mag*scale+15), d
+                txt_p = en_p + d * 12
             
             fig.add_trace(go.Scatter3d(x=[st_p[0], en_p[0]], y=[st_p[1], en_p[1]], z=[st_p[2], en_p[2]], mode='lines', line=dict(color=col, width=6), showlegend=False))
             fig.add_trace(go.Cone(x=[en_p[0]], y=[en_p[1]], z=[en_p[2]], u=[ar_d[0]], v=[ar_d[1]], w=[ar_d[2]], colorscale=[[0, col], [1, col]], showscale=False, sizemode="absolute", sizeref=12))
-            txt_p = (st_p if inward else en_p) + d*15
             fig.add_trace(go.Scatter3d(x=[txt_p[0]], y=[txt_p[1]], z=[txt_p[2]], mode='text', text=[f"<b>{name}</b>"], textfont=dict(color=col, size=14), showlegend=False))
 
-        # Vetores
+        # Vetores de Tensão
         add_arrow(e1, "blue", "S1", s1); add_arrow(e2, "green", "S2", s2); add_arrow(e3, "red", "S3", s3)
         sn_val = s1*np.cos(theta_rad)**2 + s3*np.sin(theta_rad)**2
         add_arrow(norm_vec, "black", "Sn", sn_val, False)
-        if (abs(s1-s3)/2*np.sin(2*theta_rad)) > 0.1:
-            add_arrow(face_dir, "orange", "Tau", abs(s1-s3)/2*np.sin(2*theta_rad), False)
+        
+        tau_val = abs(s1-s3)/2*np.sin(2*theta_rad)
+        if tau_val > 0.1:
+            add_arrow(face_dir, "orange", "Tau", tau_val, False)
 
         fig.update_layout(scene=dict(xaxis=dict(visible=False, range=[-lim, lim]), yaxis=dict(visible=False, range=[-lim, lim]), zaxis=dict(visible=False, range=[-lim, lim]), 
                                      aspectmode='cube', camera=dict(eye=dict(x=1.1, y=1.1, z=1.1), center=dict(x=0, y=0, z=0))), 
