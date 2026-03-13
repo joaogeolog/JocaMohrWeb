@@ -1,7 +1,7 @@
 import numpy as np
 
 def calcular_envoltoria(ts, pc, c, phi):
-    """Gera a envoltória com offset invisível (0.001) para evitar pintura de eixos."""
+    """Gera a envoltória com offset de 0.001 para evitar pintura de eixos."""
     phi_rad, xt_coll = np.radians(phi), pc * 0.6 
     sn_range = np.linspace(-ts, pc, 1200) 
     sn_final, tn_final = [], []
@@ -30,7 +30,7 @@ def calcular_ponto_com_trava(s1_eff, s3_eff, ang, x_env, y_env, last_ponto):
     return sn_res, tn_res, True
 
 def obter_geometria_v18(centro, raio, x_env, y_env):
-    """Gera círculos sólido/tracejado."""
+    """Gera círculos sólido/tracejado com proteção contra índices vazios."""
     ang = np.linspace(0, np.pi, 600)
     xc, yc = centro + raio * np.cos(ang), raio * np.sin(ang)
     res_env_circ = np.interp(xc, x_env, y_env, left=0.001, right=0.001)
@@ -38,5 +38,8 @@ def obter_geometria_v18(centro, raio, x_env, y_env):
     xc_s, yc_s = np.where(~mask_fail, xc, np.nan), np.where(~mask_fail, yc, np.nan)
     xc_f, yc_f = np.where(mask_fail, xc, np.nan), np.where(mask_fail, yc, np.nan)
     sn_fail = xc[mask_fail]
-    mask_high = (x_env >= np.min(sn_fail)) & (x_env <= np.max(sn_fail)) if len(sn_fail) > 0 else np.zeros_like(x_env, dtype=bool)
+    if len(sn_fail) > 0:
+        mask_high = (x_env >= np.min(sn_fail)) & (x_env <= np.max(sn_fail))
+    else:
+        mask_high = np.zeros_like(x_env, dtype=bool)
     return xc_s, yc_s, xc_f, yc_f, mask_high
