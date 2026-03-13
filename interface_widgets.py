@@ -19,11 +19,12 @@ def update_from_mergulho():
     st.session_state['val_ang'] = st.session_state['slide_ang'] = st.session_state['num_ang'] = a_val
 
 def reset_angles_on_regime():
-    reset_section(['ang'], clear_viz=True, rerun=True) # Regime continua reiniciando tudo
+    # Apenas o Regime reseta trajetórias e a câmera (via uirevision no plot)
+    reset_section(['ang'], clear_viz=True)
     if st.session_state.regime_sel == "Transcorrente":
         st.session_state['val_mergulho'] = st.session_state['slide_mergulho'] = st.session_state['num_mergulho'] = 90.0
 
-def reset_section(keys, clear_viz=False, rerun=False):
+def reset_section(keys, clear_viz=False):
     for k in keys:
         for pfx in ['val_', 'slide_', 'num_']:
             st.session_state[pfx + k] = float(DEFAULTS[k])
@@ -32,8 +33,6 @@ def reset_section(keys, clear_viz=False, rerun=False):
         st.session_state.ponto_fisico = {'sn': 0.0, 'tn': 0.0}
         m_val = 90.0 - DEFAULTS['ang']
         st.session_state['val_mergulho'] = st.session_state['slide_mergulho'] = st.session_state['num_mergulho'] = m_val
-    if rerun:
-        st.rerun()
 
 def dual_input_custom(label, min_v, max_v, key_p, on_change_callback, disabled=False):
     s_key, n_key = f"slide_{key_p}", f"num_{key_p}"
@@ -54,7 +53,7 @@ def dual_input(label, min_v, max_v, key_p, step=1.0):
 
 def render_bottom_interface():
     if 'val_ang' not in st.session_state:
-        reset_section(['ang'], clear_viz=True, rerun=False)
+        reset_section(['ang'], clear_viz=True)
 
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
@@ -71,7 +70,7 @@ def render_bottom_interface():
         with c3:
             hdr_col3, btn_col3 = st.columns([2, 1])
             hdr_col3.markdown("<b style='font-size:0.8em;'>3. PLANO</b>", unsafe_allow_html=True)
-            if btn_col3.button("Reiniciar", key="res_pla"): reset_section(['ang'], clear_viz=True, rerun=True)
+            if btn_col3.button("Reiniciar", key="res_pla"): reset_section(['ang'], clear_viz=True)
             st.selectbox("Regime Tectônico", ["Normal", "Transcorrente", "Reverso"], index=0, key='regime_sel', on_change=reset_angles_on_regime)
             is_trans = (st.session_state.regime_sel == "Transcorrente")
             if is_trans:
@@ -80,4 +79,3 @@ def render_bottom_interface():
             dual_input_custom("Mergulho (°)", 0, 90, 'mergulho', update_from_mergulho, disabled=is_trans)
             if st.button("Limpar Trajetória", use_container_width=True):
                 st.session_state.path_x, st.session_state.path_y = [], []
-                st.rerun()
