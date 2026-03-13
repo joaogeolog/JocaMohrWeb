@@ -17,7 +17,7 @@ def reset_section(keys):
         for pfx in ['val_', 'slide_', 'num_']:
             st.session_state[pfx + k] = float(DEFAULTS[k])
     if 'ang' in keys:
-        st.session_state.path_x, st.session_state.path_y, st.session_state.ponto_fisico = [], [], {'sn': 0.0, 'tn': 0.0}
+        st.session_state.path_x, st.session_state.path_y = [], []
 
 def dual_input(label, min_v, max_v, key_p, step=1.0):
     s_key, n_key, base_key = f"slide_{key_p}", f"num_{key_p}", f"val_{key_p}"
@@ -31,22 +31,12 @@ def dual_input(label, min_v, max_v, key_p, step=1.0):
     return st.session_state[base_key]
 
 def render_bottom_interface():
-    # Estilo CSS para subir os elementos e remover espaços inúteis
-    st.markdown("""
-        <style>
-            .stSlider { margin-bottom: -20px; }
-            .stNumberInput { margin-bottom: -20px; }
-            [data-testid="stVerticalBlock"] > div { padding-top: 0.1rem; padding-bottom: 0.1rem; }
-            div[data-testid="stForm"] { padding: 0.5rem; }
-        </style>
-    """, unsafe_allow_html=True)
-
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
         
         with c1:
             hdr, btn = st.columns([2, 1])
-            hdr.markdown("<b style='font-size:0.8em;'>1. TENSÕES (MPa)</b>", unsafe_allow_html=True)
+            hdr.markdown("<b>1. TENSÕES (MPa)</b>", unsafe_allow_html=True)
             if btn.button("Reiniciar", key="res_tens"): reset_section(['s1', 's3', 'pp'])
             dual_input("S1 (MPa)", 0, 250, 's1')
             dual_input("S3 (MPa)", 0, 250, 's3')
@@ -54,7 +44,7 @@ def render_bottom_interface():
             
         with c2:
             hdr, btn = st.columns([2, 1])
-            hdr.markdown("<b style='font-size:0.8em;'>2. ROCHA</b>", unsafe_allow_html=True)
+            hdr.markdown("<b>2. ROCHA</b>", unsafe_allow_html=True)
             if btn.button("Reiniciar", key="res_roc"): reset_section(['c', 'phi', 'ts', 'pc', 'alpha'])
             dual_input("Coesão (MPa)", 0, 100, 'c')
             dual_input("Atrito (°)", 0, 90, 'phi')
@@ -64,10 +54,10 @@ def render_bottom_interface():
             
         with c3:
             hdr, btn = st.columns([2, 1])
-            hdr.markdown("<b style='font-size:0.8em;'>3. PLANO</b>", unsafe_allow_html=True)
+            hdr.markdown("<b>3. PLANO</b>", unsafe_allow_html=True)
             if btn.button("Reiniciar", key="res_pla"): reset_section(['ang'])
-            st.selectbox("Regime Tectônico", ["Normal", "Transcorrente", "Reverso"], index=0, key='regime_sel', label_visibility="collapsed")
+            st.selectbox("Regime Tectônico", ["Normal", "Transcorrente", "Reverso"], index=0, key='regime_sel')
             dual_input("Ang/S1 (°)", 0, 90, 'ang')
-            st.markdown("<div style='margin-bottom: 5px;'></div>", unsafe_allow_html=True) 
+            st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True) 
             if st.button("Limpar Trajetória", use_container_width=True): 
                 st.session_state.path_x, st.session_state.path_y = [], []
