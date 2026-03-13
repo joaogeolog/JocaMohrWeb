@@ -10,7 +10,7 @@ st.set_page_config(layout="wide", page_title="JocaMohr Web", page_icon="⚒️")
 # Estilo para limpeza e espaçamento
 st.markdown("<style>header {visibility: hidden;} .block-container {padding-top: 1rem !important;}</style>", unsafe_allow_html=True)
 
-# Inicialização Robusta
+# 1. Inicialização Robusta
 if 'val_s1' not in st.session_state:
     p_init = {k: float(v) if isinstance(v, (int, float)) else v for k, v in ui.DEFAULTS.items()}
     p_init['ang_s1'] = p_init['ang']
@@ -30,36 +30,41 @@ else:
         "ang_s1": st.session_state.get('val_ang', ui.DEFAULTS['ang'])
     }
 
-# Cálculos Geomecânicos
+# 2. Cálculos de Tensão Efetiva
 s1_eff = p_init["s1"] - (p_init["alpha"] * p_init["pp"])
 s3_eff = p_init["s3"] - (p_init["alpha"] * p_init["pp"])
 
-# Envoltória
+# 3. Motor de Cálculo
 x_env, y_env, xt_coll = eng.calcular_envoltoria(p_init["ts"], p_init["pc"], p_init["c"], p_init["phi"])
 
-# Lógica de Interseção: O ponto agora "desliza" pela borda se houver falha
+# Correção do TypeError: Enviando exatamente os 6 argumentos que o motor espera
 sn, tn, falhou = eng.calcular_ponto_com_trava(
-    s1_eff, s3_eff, p_init["ang_s1"], x_env, y_env, p_init["ts"], p_init["pc"], 
+    s1_eff, 
+    s3_eff, 
+    p_init["ang_s1"], 
+    x_env, 
+    y_env, 
     st.session_state.get('ponto_fisico', {})
 )
 
-xc_f, yc_f, res_c, xc_o, yc_o = eng.obter_geometria_v18((s1_eff+s3_eff)/2, (s1_eff-s3_eff)/2, x_env, y_env, p_init["ts"], p_init["pc"])
+# Geometria do Círculo (Sólido/Tracejado)
+xc_s, yc_s, r_env, xc_f, yc_f = eng.obter_geometria_v18((s1_eff+s3_eff)/2, (s1_eff-s3_eff)/2, x_env, y_env)
 
-# Layout
+# 4. Interface e Plots
 col_3d, col_mohr = st.columns([1, 2])
 with col_3d: 
     viz.plot_3d_block(p_init)
 with col_mohr: 
-    viz.plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn, tn, st.session_state.get('path_x', []), st.session_state.get('path_y', []), falhou, p_init)
+    viz.plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, r_env, xc_f, yc_f, sn, tn, st.session_state.get('path_x', []), st.session_state.get('path_y', []), falhou, p_init)
 
 ui.render_bottom_interface()
 
-# Atualização de Trajetória
+# 5. Persistência de Dados
 st.session_state.ponto_fisico = {'sn': sn, 'tn': tn}
 if 'path_x' not in st.session_state:
     st.session_state.path_x, st.session_state.path_y = [], []
 
-# Adiciona ao histórico apenas se houver movimento real
-if not st.session_state.path_x or (abs(sn - st.session_state.path_x[-1]) > 0.01):
+# Adiciona ao histórico se o ponto mudou significativamente
+if not st.session_state.path_x or (abs(sn - st.session_state.path_x[-1]) > 0.02):
     st.session_state.path_x.append(sn)
     st.session_state.path_y.append(tn)
