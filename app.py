@@ -2,13 +2,12 @@ import streamlit as st
 import numpy as np
 import geostruct_engine as eng
 import interface_widgets as ui
-import visual_izacao_plots as viz
+import visualizacao_plots as viz  # Corrigido: sem o underline extra
 
 # Configuração Base
 st.set_page_config(layout="wide", page_title="JocaMohr Web", page_icon="⚒️")
 
-# 1. Garantia de Inicialização
-# Se o app resetar, os DEFAULTS garantem que o código abaixo não quebre
+# 1. Garantia de Inicialização do Session State
 if 'val_s1' not in st.session_state:
     for k, v in ui.DEFAULTS.items():
         if f'val_{k}' not in st.session_state:
@@ -16,7 +15,7 @@ if 'val_s1' not in st.session_state:
     st.session_state['regime_sel'] = ui.DEFAULTS['regime']
     st.session_state['val_ang'] = ui.DEFAULTS['ang']
 
-# 2. Captura Direta e Segura (Evita AttributeError)
+# 2. Captura Segura de Parâmetros
 s1 = st.session_state.get('val_s1', ui.DEFAULTS['s1'])
 s3 = st.session_state.get('val_s3', ui.DEFAULTS['s3'])
 pp = st.session_state.get('val_pp', ui.DEFAULTS['pp'])
@@ -28,40 +27,40 @@ pc = st.session_state.get('val_pc', ui.DEFAULTS['pc'])
 regime = st.session_state.get('regime_sel', ui.DEFAULTS['regime'])
 ang_s1 = st.session_state.get('val_ang', ui.DEFAULTS['ang'])
 
-# 3. Cálculos Geomecânicos
+# 3. Cálculos Geomecânicos Iniciais
 s1_eff = s1 - (alpha * pp)
 s3_eff = s3 - (alpha * pp)
 ts_abs = abs(ts)
 
-# Chamada do motor de cálculo (Lógica de Envoltória)
+# Geração da Envoltória
 x_env, y_env, xt_coll = eng.calcular_envoltoria(ts_abs, pc, c, phi)
 
-# 4. Lógica de Interseção (Trava o ponto na borda da envoltória)
+# 4. Lógica de Interseção (Caminho até a Falha)
 sn_target = (s1_eff + s3_eff)/2 + (s1_eff - s3_eff)/2 * np.cos(np.radians(2 * ang_s1))
 tn_target = abs((s1_eff - s3_eff)/2 * np.sin(np.radians(2 * ang_s1)))
 
 path_x = st.session_state.get('path_x', [])
 path_y = st.session_state.get('path_y', [])
 
-# Calcula o ponto real: se sn_target/tn_target falha, sn/tn será a interseção
+# Calcula o ponto real: trava na interseção com a envoltória se houver falha
 sn, tn, falhou = eng.calcular_ponto_com_intersecao(sn_target, tn_target, path_x, path_y, x_env, y_env)
 
-# Geometria para o Mohr
+# Geometria dos Círculos de Mohr
 xc_f, yc_f, res_c, xc_o, yc_o = eng.obter_geometria_v18((s1_eff+s3_eff)/2, (s1_eff-s3_eff)/2, x_env, y_env, ts_abs, pc)
 
-# Dicionário de parâmetros apenas para o bloco 3D
-params_3d = {"s1": s1, "s3": s3, "regime": regime, "ang_s1": ang_s1}
+# Parâmetros para os Plots
+params_plot = {"s1": s1, "s3": s3, "regime": regime, "ang_s1": ang_s1}
 
-# 5. Renderização
+# 5. Renderização da Interface
 col_3d, col_mohr = st.columns([1, 2])
 with col_3d: 
-    viz.plot_3d_block(params_3d)
+    viz.plot_3d_block(params_plot)
 with col_mohr: 
-    viz.plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn, tn, path_x, path_y, falhou, params_3d)
+    viz.plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn, tn, path_x, path_y, falhou, params_plot)
 
 ui.render_bottom_interface()
 
-# 6. Atualização de Histórico (Path)
+# 6. Atualização do Histórico (Trajetória)
 if 'path_x' not in st.session_state:
     st.session_state.path_x, st.session_state.path_y = [], []
 
