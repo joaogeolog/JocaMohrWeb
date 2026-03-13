@@ -57,7 +57,7 @@ def render_bottom_interface():
             hdr.markdown("<b>3. PLANO</b>", unsafe_allow_html=True)
             if btn.button("Reiniciar", key="res_pla"): reset_section(['ang'])
             st.selectbox("Regime Tectônico", ["Normal", "Transcorrente", "Reverso"], index=0, key='regime_sel')
-            dual_input("Ang/S1 (°)", 0, 90, 'ang')
+            dual_input("Mergulho (°)", 0, 90, 'ang')
             st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True) 
             if st.button("Limpar Trajetória", use_container_width=True): 
                 st.session_state.path_x, st.session_state.path_y = [], []
