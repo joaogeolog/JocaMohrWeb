@@ -3,7 +3,22 @@ import streamlit as st
 DEFAULTS = {'s1': 120.0, 's3': 40.0, 'pp': 20.0, 'alpha': 1.0, 'c': 15.0, 'phi': 30.0, 'ts': -10.0, 'pc': 180.0, 'ang': 30.0, 'regime': 'Normal'}
 
 def sync_widgets(s, t, c):
-    st.session_state[c] = st.session_state[t] = st.session_state[s]
+    """Sincroniza widgets e aplica a trava física S1 >= S3."""
+    val = st.session_state[s]
+    
+    # Lógica de trava para S1 e S3
+    if c == 'val_s1':
+        # S1 não pode ser menor que o S3 atual
+        s3_atual = st.session_state.get('val_s3', DEFAULTS['s3'])
+        if val < s3_atual:
+            val = s3_atual
+    elif c == 'val_s3':
+        # S3 não pode ser maior que o S1 atual
+        s1_atual = st.session_state.get('val_s1', DEFAULTS['s1'])
+        if val > s1_atual:
+            val = s1_atual
+
+    st.session_state[c] = st.session_state[t] = st.session_state[s] = val
 
 def update_from_ang():
     st.session_state['val_ang'] = st.session_state['slide_ang']
@@ -19,7 +34,6 @@ def update_from_mergulho():
     st.session_state['val_ang'] = st.session_state['slide_ang'] = st.session_state['num_ang'] = a_val
 
 def reset_angles_on_regime():
-    # Apenas o Regime reseta trajetórias e a câmera (via uirevision no plot)
     reset_section(['ang'], clear_viz=True)
     if st.session_state.regime_sel == "Transcorrente":
         st.session_state['val_mergulho'] = st.session_state['slide_mergulho'] = st.session_state['num_mergulho'] = 90.0
@@ -45,6 +59,7 @@ def dual_input(label, min_v, max_v, key_p, step=1.0):
     s_key, n_key, base_key = f"slide_{key_p}", f"num_{key_p}", f"val_{key_p}"
     if base_key not in st.session_state:
         st.session_state[base_key] = st.session_state[s_key] = st.session_state[n_key] = float(DEFAULTS[key_p])
+    
     c_l, c_s, c_n = st.columns([1, 2, 1])
     c_l.markdown(f"<p style='font-size:0.85em; margin-top:5px;'>{label}</p>", unsafe_allow_html=True)
     c_s.slider(label, float(min_v), float(max_v), step=float(step), key=s_key, on_change=sync_widgets, args=(s_key, n_key, base_key), label_visibility="collapsed")
@@ -61,12 +76,18 @@ def render_bottom_interface():
             hdr_col1, btn_col1 = st.columns([2, 1])
             hdr_col1.markdown("<b style='font-size:0.8em;'>1. TENSÕES (MPa)</b>", unsafe_allow_html=True)
             if btn_col1.button("Reiniciar", key="res_tens"): reset_section(['s1', 's3', 'pp'])
-            dual_input("S1 (MPa)", 0, 250, 's1'); dual_input("S3 (MPa)", 0, 250, 's3'); dual_input("P. Poros (MPa)", 0, 100, 'pp')
+            dual_input("S1 (MPa)", 0, 250, 's1')
+            dual_input("S3 (MPa)", 0, 250, 's3')
+            dual_input("P. Poros (MPa)", 0, 100, 'pp')
         with c2:
             hdr_col2, btn_col2 = st.columns([2, 1])
             hdr_col2.markdown("<b style='font-size:0.8em;'>2. ROCHA</b>", unsafe_allow_html=True)
             if btn_col2.button("Reiniciar", key="res_roc"): reset_section(['c', 'phi', 'ts', 'pc', 'alpha'])
-            dual_input("Coesão (MPa)", 0, 50, 'c'); dual_input("Ângulo Atrito (°)", 0, 50, 'phi'); dual_input("Tração (MPa)", -50, 0, 'ts'); dual_input("Colapso (MPa)", 0, 250, 'pc'); dual_input("Biot (adim.)", 0.0, 1.0, 'alpha', step=0.01)
+            dual_input("Coesão (MPa)", 0, 50, 'c')
+            dual_input("Ângulo Atrito (°)", 0, 50, 'phi')
+            dual_input("Tração (MPa)", -50, 0, 'ts')
+            dual_input("Colapso (MPa)", 0, 250, 'pc')
+            dual_input("Biot (adim.)", 0.0, 1.0, 'alpha', step=0.01)
         with c3:
             hdr_col3, btn_col3 = st.columns([2, 1])
             hdr_col3.markdown("<b style='font-size:0.8em;'>3. PLANO</b>", unsafe_allow_html=True)
