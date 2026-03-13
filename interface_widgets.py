@@ -7,11 +7,9 @@ def sync_widgets(s, t, c):
 
 def update_from_ang():
     """Calcula Mergulho a partir do Ângulo com S1."""
-    # Sincroniza os widgets do Ângulo com S1 primeiro
     st.session_state['val_ang'] = st.session_state['slide_ang']
     st.session_state['num_ang'] = st.session_state['slide_ang']
     
-    # Atualiza o Mergulho (90 - ang)
     novo_mergulho = 90.0 - st.session_state['val_ang']
     st.session_state['val_mergulho'] = novo_mergulho
     st.session_state['slide_mergulho'] = novo_mergulho
@@ -19,21 +17,17 @@ def update_from_ang():
 
 def update_from_mergulho():
     """Calcula Ângulo com S1 a partir do Mergulho."""
-    if st.session_state.regime_sel == "Transcorrente":
-        # Trava em 90 se for transcorrente
-        st.session_state['val_mergulho'] = 90.0
-        st.session_state['slide_mergulho'] = 90.0
-        st.session_state['num_mergulho'] = 90.0
-    else:
-        # Sincroniza os widgets do Mergulho
-        st.session_state['val_mergulho'] = st.session_state['slide_mergulho']
-        st.session_state['num_mergulho'] = st.session_state['slide_mergulho']
-        
-        # Atualiza a variável mestra: Ângulo com S1 (90 - mergulho)
-        novo_ang = 90.0 - st.session_state['val_mergulho']
-        st.session_state['val_ang'] = novo_ang
-        st.session_state['slide_ang'] = novo_ang
-        st.session_state['num_ang'] = novo_ang
+    st.session_state['val_mergulho'] = st.session_state['slide_mergulho']
+    st.session_state['num_mergulho'] = st.session_state['slide_mergulho']
+    
+    novo_ang = 90.0 - st.session_state['val_mergulho']
+    st.session_state['val_ang'] = novo_ang
+    st.session_state['slide_ang'] = novo_ang
+    st.session_state['num_ang'] = novo_ang
+
+def reset_angles_on_regime():
+    """Reinicia os ângulos para o padrão sempre que o regime mudar."""
+    reset_section(['ang'])
 
 def reset_section(keys):
     for k in keys:
@@ -41,18 +35,17 @@ def reset_section(keys):
             st.session_state[pfx + k] = float(DEFAULTS[k])
     if 'ang' in keys:
         st.session_state.path_x, st.session_state.path_y, st.session_state.ponto_fisico = [], [], {'sn': 0.0, 'tn': 0.0}
-        # Reset do mergulho complementar
         m_val = 90.0 - DEFAULTS['ang']
         st.session_state['val_mergulho'] = st.session_state['slide_mergulho'] = st.session_state['num_mergulho'] = m_val
 
-def dual_input_custom(label, min_v, max_v, key_p, on_change_callback):
-    """Versão customizada para os ângulos vinculados."""
+def dual_input_custom(label, min_v, max_v, key_p, on_change_callback, disabled=False):
+    """Versão customizada com suporte a desabilitação."""
     s_key, n_key = f"slide_{key_p}", f"num_{key_p}"
     
     c_l, c_s, c_n = st.columns([1, 2, 1])
     c_l.markdown(f"<p style='font-size:0.85em; margin-top:5px;'>{label}</p>", unsafe_allow_html=True)
-    c_s.slider(label, float(min_v), float(max_v), key=s_key, on_change=on_change_callback, label_visibility="collapsed")
-    c_n.number_input(label, float(min_v), float(max_v), key=n_key, on_change=on_change_callback, label_visibility="collapsed")
+    c_s.slider(label, float(min_v), float(max_v), key=s_key, on_change=on_change_callback, label_visibility="collapsed", disabled=disabled)
+    c_n.number_input(label, float(min_v), float(max_v), key=n_key, on_change=on_change_callback, label_visibility="collapsed", disabled=disabled)
 
 def dual_input(label, min_v, max_v, key_p, step=1.0):
     s_key, n_key, base_key = f"slide_{key_p}", f"num_{key_p}", f"val_{key_p}"
@@ -66,7 +59,6 @@ def dual_input(label, min_v, max_v, key_p, step=1.0):
     return st.session_state[base_key]
 
 def render_bottom_interface():
-    # Inicialização dos estados se não existirem
     if 'val_ang' not in st.session_state:
         reset_section(['ang'])
 
@@ -96,20 +88,26 @@ def render_bottom_interface():
             hdr_col3.markdown("<b style='font-size:0.8em;'>3. PLANO</b>", unsafe_allow_html=True)
             if btn_col3.button("Reiniciar", key="res_pla"): reset_section(['ang'])
             
-            st.selectbox("Regime Tectônico", ["Normal", "Transcorrente", "Reverso"], index=0, key='regime_sel', on_change=update_from_mergulho)
+            # Quando o regime muda, chama o reset dos ângulos
+            st.selectbox("Regime Tectônico", ["Normal", "Transcorrente", "Reverso"], 
+                         index=0, key='regime_sel', on_change=reset_angles_on_regime)
             
-            # Inputs vinculados
-            dual_input_custom("Ângulo com S1 (°)", 0, 90, 'ang', update_from_ang)
-            
-            # Desabilita Mergulho se for Transcorrente
-            if st.session_state.regime_sel == "Transcorrente":
+            # Trava Transcorrente: mergulho vai para 90 e o widget é desabilitado
+            is_trans = (st.session_state.regime_sel == "Transcorrente")
+            if is_trans:
                 st.session_state['slide_mergulho'] = 90.0
                 st.session_state['num_mergulho'] = 90.0
                 st.session_state['val_mergulho'] = 90.0
-                st.info("Mergulho travado em 90° (Regime Transcorrente)")
+                st.session_state['slide_ang'] = 0.0
+                st.session_state['num_ang'] = 0.0
+                st.session_state['val_ang'] = 0.0
+
+            dual_input_custom("Ângulo com S1 (°)", 0, 90, 'ang', update_from_ang, disabled=is_trans)
+            dual_input_custom("Mergulho (°)", 0, 90, 'mergulho', update_from_mergulho, disabled=is_trans)
             
-            dual_input_custom("Mergulho (°)", 0, 90, 'mergulho', update_from_mergulho)
-            
+            if is_trans:
+                st.caption("ℹ️ No regime Transcorrente, o mergulho é vertical (90°).")
+
             st.write("") 
             if st.button("Limpar Trajetória", use_container_width=True): 
                 st.session_state.path_x, st.session_state.path_y = [], []
