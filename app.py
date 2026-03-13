@@ -12,12 +12,13 @@ st.markdown("<style>header {visibility: hidden;} .block-container {padding-top: 
 
 # Estado da Sessão e Captura de Parâmetros
 if 'val_s1' not in st.session_state:
+    # Inicialização segura: garante que todos os valores existam e tração esteja em módulo
     p_init = {k: float(v) if isinstance(v, (int, float)) else v for k, v in ui.DEFAULTS.items()}
     p_init['ang_s1'] = p_init['ang']
+    p_init['ts'] = abs(ui.DEFAULTS['ts']) # Correção: módulo para o motor de cálculo
 else:
-    # Capturamos a tração do slider (que é negativa)
+    # Captura valores atuais do session_state
     ts_slider = st.session_state.get('val_ts', ui.DEFAULTS['ts'])
-    
     p_init = {
         "s1": st.session_state.get('val_s1', ui.DEFAULTS['s1']),
         "s3": st.session_state.get('val_s3', ui.DEFAULTS['s3']),
@@ -25,7 +26,7 @@ else:
         "alpha": st.session_state.get('val_alpha', ui.DEFAULTS['alpha']),
         "c": st.session_state.get('val_c', ui.DEFAULTS['c']),
         "phi": st.session_state.get('val_phi', ui.DEFAULTS['phi']),
-        "ts": abs(ts_slider), # Passamos o módulo para o motor de cálculo não inverter a física
+        "ts": abs(ts_slider), # Garante módulo durante a edição
         "pc": st.session_state.get('val_pc', ui.DEFAULTS['pc']),
         "regime": st.session_state.get('regime_sel', ui.DEFAULTS['regime']),
         "ang_s1": st.session_state.get('val_ang', ui.DEFAULTS['ang'])
@@ -34,6 +35,8 @@ else:
 # Cálculos Geomecânicos
 s1_eff = p_init["s1"] - (p_init["alpha"] * p_init["pp"])
 s3_eff = p_init["s3"] - (p_init["alpha"] * p_init["pp"])
+
+# Motor de cálculo usa o módulo de p_init["ts"]
 x_env, y_env, xt_coll = eng.calcular_envoltoria(p_init["ts"], p_init["pc"], p_init["c"], p_init["phi"])
 sn, tn, falhou = eng.calcular_ponto_com_trava(s1_eff, s3_eff, p_init["ang_s1"], x_env, y_env, p_init["ts"], p_init["pc"], st.session_state.get('ponto_fisico', {'sn': 0.0, 'tn': 0.0}))
 xc_f, yc_f, res_c, xc_o, yc_o = eng.obter_geometria_v18((s1_eff+s3_eff)/2, (s1_eff-s3_eff)/2, x_env, y_env, p_init["ts"], p_init["pc"])
