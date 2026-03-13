@@ -1,11 +1,13 @@
 import numpy as np
 
 def calcular_envoltoria(ts, pc, c, phi):
-    """Gera a geometria da envoltória (Tração, Cisalhamento, Colapso)."""
+    """Gera a geometria da envoltória limitada ao semiplano superior positivo."""
     phi_rad = np.radians(phi)
     xt_coll = pc * 0.6 
-    sn_range = np.linspace(-ts, pc + 50, 500)
-    tn_range = []
+    # Aumentamos a densidade de pontos para garantir fechamento suave
+    sn_range = np.linspace(-ts, pc, 1000) 
+    sn_final, tn_final = [], []
+    
     for sn in sn_range:
         if sn < 0:
             tn = c * np.sqrt(max(0, 1 - (sn / -ts)))
@@ -16,19 +18,30 @@ def calcular_envoltoria(ts, pc, c, phi):
             b = c + xt_coll * np.tan(phi_rad)
             val = 1 - ((sn - xt_coll)**2 / a**2)
             tn = b * np.sqrt(max(0, val))
-        tn_range.append(tn)
-    return sn_range, np.array(tn_range), xt_coll
+        
+        # SÓ ADICIONA SE TN FOR MAIOR QUE ZERO
+        if tn > 0.01: 
+            sn_final.append(sn)
+            tn_final.append(tn)
+    
+    return np.array(sn_final), np.array(tn_final), xt_coll
 
 def calcular_ponto_com_trava(s1_eff, s3_eff, ang, x_env, y_env, last_ponto):
     """Calcula a posição no círculo e trava na interseção se houver falha."""
     sn_target = (s1_eff + s3_eff)/2 + (s1_eff - s3_eff)/2 * np.cos(np.radians(2 * ang))
     tn_target = abs((s1_eff - s3_eff)/2 * np.sin(np.radians(2 * ang)))
     
-    limite = np.interp(sn_target, x_env, y_env)
+    # Interpolação segura: se sn_target estiver fora do range da env, usamos o último tn da env
+    if sn_target < np.min(x_env):
+        limite = y_env[0]
+    elif sn_target > np.max(x_env):
+        limite = 0
+    else:
+        limite = np.interp(sn_target, x_env, y_env)
+
     if tn_target <= limite:
         return sn_target, tn_target, False 
     
-    # Se falhou, busca o ponto de trava na borda
     sn_old = last_ponto.get('sn', sn_target)
     tn_old = last_ponto.get('tn', 0.0)
     t_min, t_max = 0.0, 1.0
@@ -37,7 +50,9 @@ def calcular_ponto_com_trava(s1_eff, s3_eff, ang, x_env, y_env, last_ponto):
         t = (t_min + t_max) / 2
         sn_t = sn_old + t * (sn_target - sn_old)
         tn_t = tn_old + t * (tn_target - tn_old)
-        if tn_t > np.interp(sn_t, x_env, y_env):
+        
+        lim_t = np.interp(sn_t, x_env, y_env, left=y_env[0], right=0)
+        if tn_t > lim_t:
             t_max = t
         else:
             t_min = t
@@ -46,10 +61,12 @@ def calcular_ponto_com_trava(s1_eff, s3_eff, ang, x_env, y_env, last_ponto):
 
 def obter_geometria_v18(centro, raio, x_env, y_env):
     """Separa o círculo em sólido/tracejado e define o realce da envoltória."""
-    ang = np.linspace(0, np.pi, 300)
+    ang = np.linspace(0, np.pi, 500)
     xc = centro + raio * np.cos(ang)
     yc = raio * np.sin(ang)
-    res_env_circ = np.interp(xc, x_env, y_env)
+    
+    # Interpolação do limite da envoltória para cada sn do círculo
+    res_env_circ = np.interp(xc, x_env, y_env, left=0, right=0)
     
     mask_fail = yc > res_env_circ + 0.05
     xc_stable = np.where(~mask_fail, xc, np.nan)
