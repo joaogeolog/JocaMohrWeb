@@ -24,11 +24,8 @@ def dual_input(label, min_v, max_v, key_p, step=1.0):
     return st.session_state[base_key]
 
 def render_bottom_interface():
-    """Renderiza a interface de sliders com moldura de contorno."""
+    """Renderiza os controles diretamente dentro da moldura."""
     with st.container(border=True):
-        st.markdown("<b style='font-size:1.1em;'>CONTROLES DO MODELO</b>", unsafe_allow_html=True)
-        st.divider()
-        
         c1, c2, c3 = st.columns(3)
         with c1:
             st.markdown("<b style='font-size:0.8em;'>1. TENSÕES (MPa)</b>", unsafe_allow_html=True)
