@@ -3,7 +3,7 @@ import streamlit as st
 import numpy as np
 
 def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_p, p_x, p_y, falhou, params):
-    """Diagrama de Mohr com eixos técnicos e proteção de arrays."""
+    """Diagrama de Mohr técnico."""
     with st.container(border=True):
         fig = go.Figure()
         fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
@@ -28,7 +28,7 @@ def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_
         st.plotly_chart(fig, use_container_width=True)
 
 def plot_3d_block(params):
-    """Visualização 3D com PROJEÇÃO ORTOGRÁFICA (sem perspectiva)."""
+    """Visualização 3D Ortográfica com Sn perfeitamente perpendicular ao plano."""
     with st.container(border=True):
         st.markdown('<div style="position: relative; height: 0px;"><div style="position: absolute; top: -5px; left: 0px; z-index: 10;"><span style="font-family: sans-serif; font-size: 1.1em; font-weight: bold; color: #333;">JocaMohr</span></div></div>', unsafe_allow_html=True)
         
@@ -38,33 +38,36 @@ def plot_3d_block(params):
         s2 = (s1 + s3) / 2
         rad = np.radians(ang_val)
         
-        # Definição de eixos e vetores (Geometria Ortogonal Restaurada)
-        if reg == 'Normal':
+        # 1. Definição Rigorosa do Vetor Normal (n) e Direção de Cisalhamento (f)
+        if reg == 'Normal': # S1 Vertical (Z)
             e1, e2, e3 = np.array([0,0,1]), np.array([1,0,0]), np.array([0,1,0])
             n_vec = np.array([0, np.sin(rad), np.cos(rad)]) 
             f_dir = np.array([0, np.cos(rad), -np.sin(rad)])
-        elif reg == 'Transcorrente':
+        elif reg == 'Transcorrente': # S2 Vertical (Z)
             e1, e2, e3 = np.array([0,1,0]), np.array([0,0,1]), np.array([1,0,0])
             n_vec = np.array([np.cos(rad), np.sin(rad), 0])
             f_dir = np.array([-np.sin(rad), np.cos(rad), 0])
-        else:
+        else: # Reverso: S3 Vertical (Z)
             e1, e2, e3 = np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1])
             n_vec = np.array([np.sin(rad), 0, np.cos(rad)])
             f_dir = np.array([np.cos(rad), 0, -np.sin(rad)])
 
         fig = go.Figure()
         
-        # Desenho do Bloco
+        # 2. Desenho do Bloco (Cubo)
         v = np.array([[-40,-40,-50], [40,-40,-50], [40,40,-50], [-40,40,-50], [-40,-40,50], [40,-40,50], [40,40,50], [-40,40,50]])
         edges = [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]
         for e in edges: fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], mode='lines', line=dict(color='black', width=2), showlegend=False))
 
-        # Plano Ortogonal
+        # 3. Construção do Plano Ortogonal ao n_vec
         sz = 45
-        u = np.array([1, 0, 0]) if abs(n_vec[0]) < 0.9 else np.array([0, 1, 0])
-        v1 = np.cross(n_vec, u)
+        # Encontrar um vetor perpendicular ao n_vec para iniciar a base do plano
+        cp = np.array([1, 0, 0]) if abs(n_vec[0]) < 0.9 else np.array([0, 1, 0])
+        v1 = np.cross(n_vec, cp)
         v1 /= np.linalg.norm(v1)
-        v2 = np.cross(n_vec, v1)
+        v2 = np.cross(n_vec, v1) # v2 é garantidamente ortogonal a n_vec e v1
+        
+        # Vértices do plano usando a base v1, v2 (todos perpendiculares a n_vec)
         p_pts = np.array([-sz*v1-sz*v2, sz*v1-sz*v2, sz*v1+sz*v2, -sz*v1+sz*v2])
         fig.add_trace(go.Mesh3d(x=p_pts[:,0], y=p_pts[:,1], z=p_pts[:,2], i=[0,0], j=[1,2], k=[2,3], color='lightblue', opacity=0.6))
 
@@ -77,24 +80,20 @@ def plot_3d_block(params):
             fig.add_trace(go.Cone(x=[ep[0]], y=[ep[1]], z=[ep[2]], u=[ar_d[0]], v=[ar_d[1]], w=[ar_d[2]], colorscale=[[0, color], [1, color]], showscale=False, sizemode="absolute", sizeref=12))
             fig.add_trace(go.Scatter3d(x=[ep[0]+d[0]*12], y=[ep[1]+d[1]*12], z=[ep[2]+d[2]*12], mode='text', text=[f"<b>{name}</b>"], textfont=dict(color=color, size=14), showlegend=False))
 
+        # 4. Vetores de Tensão
         add_arrow(e1, "blue", "S1", s1)
         add_arrow(e2, "green", "S2", s2)
         add_arrow(e3, "red", "S3", s3)
-        add_arrow(n_vec, "black", "Sn", s1, False)
+        add_arrow(n_vec, "black", "Sn", s1, False) # Sn saindo perpendicularmente
         
         t_val = abs(s1-s3)/2 * np.sin(2 * rad)
         if t_val > 0.1: add_arrow(f_dir, "orange", "Tau", t_val, False)
 
-        # AJUSTE DA CÂMERA PARA ORTOGRÁFICA
         fig.update_layout(
             scene=dict(
-                xaxis=dict(visible=False), 
-                yaxis=dict(visible=False), 
-                zaxis=dict(visible=False), 
-                aspectmode='cube',
-                camera=dict(projection=dict(type='orthographic')) # <--- MUDANÇA AQUI
+                xaxis=dict(visible=False), yaxis=dict(visible=False), zaxis=dict(visible=False), aspectmode='cube',
+                camera=dict(projection=dict(type='orthographic'))
             ), 
-            height=500, 
-            margin=dict(l=0, r=0, t=0, b=0)
+            height=500, margin=dict(l=0, r=0, t=0, b=0)
         )
         st.plotly_chart(fig, use_container_width=True)
