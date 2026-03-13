@@ -3,7 +3,7 @@ import streamlit as st
 import numpy as np
 
 def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, p_x, p_y, falhou, params):
-    """Renderiza o Diagrama de Mohr fiel ao original."""
+    """Renderiza o Diagrama de Mohr (usa o ângulo com S1)."""
     fig = go.Figure()
     fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
     
@@ -18,12 +18,12 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     fig.add_trace(go.Scatter(x=np.where(m_s, xc_o, np.nan), y=np.where(m_s, yc_o, np.nan), line=dict(color='#1f77b4', width=2.5), name="Estável"))
     fig.add_trace(go.Scatter(x=np.where(~m_s, xc_o, np.nan), y=np.where(~m_s, yc_o, np.nan), line=dict(color='black', width=1, dash='dash'), name="Teórico"))
     
-    # Arcos de Falha Colapsados
+    # Arcos de Falha
     fig.add_trace(go.Scatter(x=np.where(m_f & (xc_f < 0), xc_f, np.nan), y=np.where(m_f & (xc_f < 0), yc_f, np.nan), line=dict(color='blue', width=4), showlegend=False))
     fig.add_trace(go.Scatter(x=np.where(m_f & (xc_f >= 0) & (xc_f <= xt_coll), xc_f, np.nan), y=np.where(m_f & (xc_f >= 0) & (xc_f <= xt_coll), yc_f, np.nan), line=dict(color='red', width=4), showlegend=False))
     fig.add_trace(go.Scatter(x=np.where(m_f & (xc_f > xt_coll), xc_f, np.nan), y=np.where(m_f & (xc_f > xt_coll), yc_f, np.nan), line=dict(color='green', width=4), showlegend=False))
     
-    # Trajetória e Ponto
+    # Trajetória
     fig.add_trace(go.Scatter(x=p_x, y=p_y, line=dict(color='orange', width=1.5, dash='dash'), name="Trajetória"))
     fig.add_trace(go.Scatter(x=[sn_p], y=[tn_p], mode='markers', marker=dict(size=14, color='yellow' if falhou else '#2ca02c', line=dict(width=2, color='black')), showlegend=False))
     
@@ -31,18 +31,21 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Visualização 3D com mergulho corrigido (90-theta) e vetores ortogonais ao plano."""
-    theta_deg = params['ang_s1']
-    theta_rad = np.radians(theta_deg)
+    """Visualização 3D com separação clara entre ângulo com S1 e Mergulho."""
+    ang_s1_deg = params['ang_s1']
     
-    # REPARO DO MERGULHO: dip = 90 - theta
-    dip_rad = np.radians(90 - theta_deg)
+    # 1. SEPARAÇÃO CONCEITUAL:
+    # theta: ângulo usado para cálculos de tensão (Mohr)
+    # mergulho: ângulo geométrico para o plot 3D
+    theta_rad = np.radians(ang_s1_deg)
+    mergulho_deg = 90 - ang_s1_deg
+    mergulho_rad = np.radians(mergulho_deg)
     
     reg = params['regime']
     s1, s3 = params['s1'], params['s3']
     s2 = (s1 + s3) / 2
 
-    # Eixos por regime
+    # Eixos Principais (Anderson)
     if reg == 'Normal':
         e1, e2, e3 = np.array([0,0,1]), np.array([1,0,0]), np.array([0,1,0])
     elif reg == 'Transcorrente':
@@ -50,13 +53,10 @@ def plot_3d_block(params):
     else: # Reverso
         e1, e2, e3 = np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1])
 
-    # MATEMÁTICA VETORIAL INTEGRADA:
-    # O plano é rotacionado a partir de S1 (e1) em direção a S3 (e3)
-    # A Normal (Sn) está a 'theta' de S1.
-    # O Mergulho visual (face do plano) está a '90-theta' de S1.
-    
-    sn_vec = e1 * np.cos(theta_rad) + e3 * np.sin(theta_rad)
-    tau_vec = -e1 * np.sin(theta_rad) + e3 * np.cos(theta_rad)
+    # 2. DEFINIÇÃO DA GEOMETRIA DO PLANO (Baseada no Mergulho)
+    # O plano 'deita' ou 'levanta' em relação ao eixo vertical do bloco
+    face_dir = -e1 * np.sin(mergulho_rad) + e3 * np.cos(mergulho_rad)
+    norm_vec = e1 * np.cos(mergulho_rad) + e3 * np.sin(mergulho_rad)
     
     fig = go.Figure()
 
@@ -66,21 +66,15 @@ def plot_3d_block(params):
     for e in edges:
         fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], mode='lines', line=dict(color='black', width=2), showlegend=False))
 
-    # CONSTRUÇÃO DO PLANO: 
-    # O plano é perpendicular à Normal (sn_vec). 
-    # Usamos tau_vec (que está a 90 deg da normal) para definir a inclinação da face.
+    # Construção da Face (Triangulação Manual)
     size = 42
-    p1 = -size * e2 - size * tau_vec
-    p2 =  size * e2 - size * tau_vec
-    p3 =  size * e2 + size * tau_vec
-    p4 = -size * e2 + size * tau_vec
-    
+    p1, p2 = -size * e2 - size * face_dir, size * e2 - size * face_dir
+    p3, p4 = size * e2 + size * face_dir, -size * e2 + size * face_dir
     pts = np.array([p1, p2, p3, p4])
-    z_mesh = np.clip(pts[:,2], -50, 50)
     
-    fig.add_trace(go.Mesh3d(x=pts[:,0], y=pts[:,1], z=z_mesh, i=[0,0], j=[1,2], k=[2,3], color='lightblue', opacity=0.8, showlegend=False))
+    fig.add_trace(go.Mesh3d(x=pts[:,0], y=pts[:,1], z=np.clip(pts[:,2], -50, 50), i=[0,0], j=[1,2], k=[2,3], color='lightblue', opacity=0.8, showlegend=False))
 
-    # Função para Vetores
+    # 3. VETORES (Garantindo Ortogonalidade)
     def add_arrow(direction, color, name, magnitude, inward=True):
         scale = 0.25
         d = direction / (np.linalg.norm(direction) + 1e-9)
@@ -97,21 +91,19 @@ def plot_3d_block(params):
         fig.add_trace(go.Cone(x=[end_p[0]], y=[end_p[1]], z=[end_p[2]], u=[arrow_d[0]], v=[arrow_d[1]], w=[arrow_d[2]], colorscale=[[0, color], [1, color]], showscale=False, sizemode="absolute", sizeref=12))
         fig.add_trace(go.Scatter3d(x=[start_p[0]*1.15 if inward else end_p[0]*1.2], y=[start_p[1]*1.15 if inward else end_p[1]*1.2], z=[start_p[2]*1.15 if inward else end_p[2]*1.2], mode='text', text=[f"<b>{name}</b>"], textfont=dict(color=color, size=13), showlegend=False))
 
-    # Tensões Principais
+    # Tensões Principais (S1, S2, S3)
     add_arrow(e1, "blue", "S1", s1)
     add_arrow(e2, "green", "S2", s2)
     add_arrow(e3, "red", "S3", s3)
     
-    # Magnitudes de tensão para Sn e Tau
+    # Magnitudes baseadas no ângulo S1 (Calculadas via Mohr)
     sn_val = s1*np.cos(theta_rad)**2 + s3*np.sin(theta_rad)**2
     tau_val = abs(s1-s3)/2*np.sin(2*theta_rad)
     
-    # VETORES LOCAIS:
-    # Sn (preto) é ortogonal ao plano
-    add_arrow(sn_vec, "black", "Sn", sn_val, False)
-    # Tau (laranja) está contido no plano
+    # Sn (Preto) ortogonal ao plano azul e Tau (Laranja) contido nele
+    add_arrow(norm_vec, "black", "Sn", sn_val, False)
     if tau_val > 0.1:
-        add_arrow(tau_vec, "orange", "Tau", tau_val, False)
+        add_arrow(face_dir, "orange", "Tau", tau_val, False)
 
     fig.update_layout(scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False, aspectmode='data', camera=dict(eye=dict(x=1.5, y=1.5, z=1.5))), height=500, margin=dict(l=0,r=0,t=0,b=0))
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
