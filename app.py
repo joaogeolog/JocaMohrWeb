@@ -7,70 +7,56 @@ import visualizacao_plots as viz
 # Configuração Base
 st.set_page_config(layout="wide", page_title="JocaMohr Web", page_icon="⚒️")
 
-# 1. Inicialização Forçada do Session State
-# Isso garante que NADA chegue vazio ao motor de cálculo
-for key, default_val in ui.DEFAULTS.items():
-    if f'val_{key}' not in st.session_state:
-        st.session_state[f'val_{key}'] = float(default_val) if isinstance(default_val, (int, float)) else default_val
+# Estilo para limpeza e espaçamento
+st.markdown("<style>header {visibility: hidden;} .block-container {padding-top: 1rem !important;}</style>", unsafe_allow_html=True)
 
-if 'regime_sel' not in st.session_state:
-    st.session_state['regime_sel'] = ui.DEFAULTS['regime']
+# Inicialização Robusta do Estado da Sessão
+if 'val_s1' not in st.session_state:
+    # Primeira carga ou após erro: força os DEFAULTS
+    p_init = {k: float(v) if isinstance(v, (int, float)) else v for k, v in ui.DEFAULTS.items()}
+    p_init['ang_s1'] = p_init['ang']
+    p_init['ts'] = abs(ui.DEFAULTS['ts'])
+else:
+    # Captura segura usando .get() para evitar AttributeError
+    ts_val = st.session_state.get('val_ts', ui.DEFAULTS['ts'])
+    p_init = {
+        "s1": st.session_state.get('val_s1', ui.DEFAULTS['s1']),
+        "s3": st.session_state.get('val_s3', ui.DEFAULTS['s3']),
+        "pp": st.session_state.get('val_pp', ui.DEFAULTS['pp']),
+        "alpha": st.session_state.get('val_alpha', ui.DEFAULTS['alpha']),
+        "c": st.session_state.get('val_c', ui.DEFAULTS['c']),
+        "phi": st.session_state.get('val_phi', ui.DEFAULTS['phi']),
+        "ts": abs(ts_val),
+        "pc": st.session_state.get('val_pc', ui.DEFAULTS['pc']),
+        "regime": st.session_state.get('regime_sel', ui.DEFAULTS['regime']),
+        "ang_s1": st.session_state.get('val_ang', ui.DEFAULTS['ang'])
+    }
 
-# 2. Atribuição Local com Fallbacks (Segurança Máxima)
-# Se o .get falhar, o valor do ui.DEFAULTS entra na hora
-s1    = st.session_state.get('val_s1',    ui.DEFAULTS['s1'])
-s3    = st.session_state.get('val_s3',    ui.DEFAULTS['s3'])
-pp    = st.session_state.get('val_pp',    ui.DEFAULTS['pp'])
-alpha = st.session_state.get('val_alpha', ui.DEFAULTS['alpha'])
-c     = st.session_state.get('val_c',     ui.DEFAULTS['c'])
-phi   = st.session_state.get('val_phi',   ui.DEFAULTS['phi'])
-ts    = st.session_state.get('val_ts',    ui.DEFAULTS['ts'])
-pc    = st.session_state.get('val_pc',    ui.DEFAULTS['pc'])
-reg   = st.session_state.get('regime_sel', ui.DEFAULTS['regime'])
-ang   = st.session_state.get('val_ang',    ui.DEFAULTS['ang'])
+# Cálculos Geomecânicos (Sn e Tau)
+s1_eff = p_init["s1"] - (p_init["alpha"] * p_init["pp"])
+s3_eff = p_init["s3"] - (p_init["alpha"] * p_init["pp"])
 
-# 3. Processamento de Variáveis
-s1_eff = float(s1 - (alpha * pp))
-s3_eff = float(s3 - (alpha * pp))
-ts_abs = float(abs(ts)) # Módulo da tração para a matemática da envoltória
+# Chamadas ao motor de cálculo
+x_env, y_env, xt_coll = eng.calcular_envoltoria(p_init["ts"], p_init["pc"], p_init["c"], p_init["phi"])
+sn, tn, falhou = eng.calcular_ponto_com_trava(s1_eff, s3_eff, p_init["ang_s1"], x_env, y_env, p_init["ts"], p_init["pc"], st.session_state.get('ponto_fisico', {'sn': 0.0, 'tn': 0.0}))
+xc_f, yc_f, res_c, xc_o, yc_o = eng.obter_geometria_v18((s1_eff+s3_eff)/2, (s1_eff-s3_eff)/2, x_env, y_env, p_init["ts"], p_init["pc"])
 
-# Chamada do Motor de Cálculo
-# IMPORTANTE: Verifique se no geostruct_engine.py a função segue essa ordem: (ts, pc, c, phi)
-try:
-    x_env, y_env, xt_coll = eng.calcular_envoltoria(ts_abs, pc, c, phi)
-except Exception as e:
-    st.error(f"Erro no motor de cálculo: {e}")
-    st.stop()
-
-# 4. Lógica de Interseção (Caminho de Ruptura)
-sn_target = (s1_eff + s3_eff)/2 + (s1_eff - s3_eff)/2 * np.cos(np.radians(2 * ang))
-tn_target = abs((s1_eff - s3_eff)/2 * np.sin(np.radians(2 * ang)))
-
-path_x = st.session_state.get('path_x', [])
-path_y = st.session_state.get('path_y', [])
-
-# Calcula o ponto na borda se houver falha
-sn, tn, falhou = eng.calcular_ponto_com_intersecao(sn_target, tn_target, path_x, path_y, x_env, y_env)
-
-# Geometria dos Círculos
-xc_f, yc_f, res_c, xc_o, yc_o = eng.obter_geometria_v18((s1_eff+s3_eff)/2, (s1_eff-s3_eff)/2, x_env, y_env, ts_abs, pc)
-
-# Dicionário de Parâmetros para os Gráficos
-params_viz = {"s1": s1, "s3": s3, "regime": reg, "ang_s1": ang}
-
-# 5. Renderização
+# Layout Superior: 1/3 Cubo | 2/3 Mohr
 col_3d, col_mohr = st.columns([1, 2])
-with col_3d: 
-    viz.plot_3d_block(params_viz)
-with col_mohr: 
-    viz.plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn, tn, path_x, path_y, falhou, params_viz)
 
+with col_3d: 
+    # Passamos o dicionário p_init garantido
+    viz.plot_3d_block(p_init)
+
+with col_mohr: 
+    viz.plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn, tn, st.session_state.get('path_x', []), st.session_state.get('path_y', []), falhou, p_init)
+
+# Layout Inferior: Painel de Controles
 ui.render_bottom_interface()
 
-# 6. Atualização do Histórico (Trajetória)
+# Persistência de Trajetória (evita erros de lista inexistente)
+st.session_state.ponto_fisico = {'sn': sn, 'tn': tn}
 if 'path_x' not in st.session_state:
     st.session_state.path_x, st.session_state.path_y = [], []
-
-if not path_x or (abs(sn - path_x[-1]) > 0.05 or abs(tn - path_y[-1]) > 0.05):
-    st.session_state.path_x.append(sn)
-    st.session_state.path_y.append(tn)
+st.session_state.path_x.append(sn)
+st.session_state.path_y.append(tn)
