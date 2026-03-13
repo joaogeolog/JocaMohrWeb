@@ -1,8 +1,8 @@
 import numpy as np
 
 def calcular_envoltoria(ts, pc, c, phi):
-    """Gera a envoltória com offset de 0.001 para evitar pintura de eixos."""
-    phi_rad, xt_coll = np.radians(phi), pc * 0.6 
+    phi_rad = np.radians(phi)
+    xt_coll = pc * 0.6 
     sn_range = np.linspace(-ts, pc, 1200) 
     sn_final, tn_final = [], []
     for sn in sn_range:
@@ -14,12 +14,22 @@ def calcular_envoltoria(ts, pc, c, phi):
         sn_final.append(sn); tn_final.append(max(tn, 0.001))
     return np.array(sn_final), np.array(tn_final), xt_coll
 
-def calcular_ponto_com_trava(s1_eff, s3_eff, ang, x_env, y_env, last_ponto):
-    """Trava o ponto na borda."""
-    sn_target = (s1_eff + s3_eff)/2 + (s1_eff - s3_eff)/2 * np.cos(np.radians(2 * ang))
-    tn_target = abs((s1_eff - s3_eff)/2 * np.sin(np.radians(2 * ang)))
+def calcular_ponto_com_trava(s1_eff, s3_eff, ang_s1, x_env, y_env, last_ponto):
+    # O ângulo crítico de falha em relação a S1 é theta = 45 - phi/2
+    # No círculo de Mohr, isso corresponde a 2*theta
+    theta_rad = np.radians(ang_s1)
+    centro = (s1_eff + s3_eff) / 2
+    raio = (s1_eff - s3_eff) / 2
+    
+    # sn = centro + raio * cos(2*theta)
+    # tn = raio * sin(2*theta)
+    # Com ang_s1=30, 2*theta=60. O ponto deve estar à direita do topo do círculo.
+    sn_target = centro + raio * np.cos(2 * theta_rad)
+    tn_target = abs(raio * np.sin(2 * theta_rad))
+    
     limite = np.interp(sn_target, x_env, y_env, left=0.001, right=0.001)
     if tn_target <= limite: return sn_target, tn_target, False 
+    
     sn_old, tn_old = last_ponto.get('sn', sn_target), last_ponto.get('tn', 0.001)
     t_min, t_max, sn_res, tn_res = 0.0, 1.0, sn_old, tn_old
     for _ in range(15):
@@ -30,7 +40,6 @@ def calcular_ponto_com_trava(s1_eff, s3_eff, ang, x_env, y_env, last_ponto):
     return sn_res, tn_res, True
 
 def obter_geometria_v18(centro, raio, x_env, y_env):
-    """Gera círculos sólido/tracejado com proteção contra índices vazios."""
     ang = np.linspace(0, np.pi, 600)
     xc, yc = centro + raio * np.cos(ang), raio * np.sin(ang)
     res_env_circ = np.interp(xc, x_env, y_env, left=0.001, right=0.001)
@@ -38,8 +47,5 @@ def obter_geometria_v18(centro, raio, x_env, y_env):
     xc_s, yc_s = np.where(~mask_fail, xc, np.nan), np.where(~mask_fail, yc, np.nan)
     xc_f, yc_f = np.where(mask_fail, xc, np.nan), np.where(mask_fail, yc, np.nan)
     sn_fail = xc[mask_fail]
-    if len(sn_fail) > 0:
-        mask_high = (x_env >= np.min(sn_fail)) & (x_env <= np.max(sn_fail))
-    else:
-        mask_high = np.zeros_like(x_env, dtype=bool)
+    mask_high = (x_env >= np.min(sn_fail)) & (x_env <= np.max(sn_fail)) if len(sn_fail) > 0 else np.zeros_like(x_env, dtype=bool)
     return xc_s, yc_s, xc_f, yc_f, mask_high
