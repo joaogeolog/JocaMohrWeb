@@ -3,6 +3,7 @@ import streamlit as st
 import numpy as np
 
 def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_p, p_x, p_y, falhou, params):
+    """Mohr usa o 'Ângulo com S1' para as tensões."""
     with st.container(border=True):
         fig = go.Figure()
         fig.add_shape(type="line", x0=-50, y0=0, x1=250, y1=0, line=dict(color="black", width=2))
@@ -23,33 +24,36 @@ def plot_mohr(x_env, y_env, xt_coll, xc_s, yc_s, xc_f, yc_f, env_high, sn_p, tn_
         st.plotly_chart(fig, use_container_width=True)
 
 def plot_3d_block(params):
+    """Bloco 3D usa o 'Mergulho' para plotar o plano no espaço XYZ."""
     with st.container(border=True):
         st.markdown('<div style="position: relative; height: 0px;"><div style="position: absolute; top: -5px; left: 0px; z-index: 10;"><span style="font-family: sans-serif; font-size: 1.1em; font-weight: bold; color: #333;">JocaMohr</span></div></div>', unsafe_allow_html=True)
-        ang_val = params.get('ang_s1', params.get('ang', 30.0))
+        
+        mergulho = params.get('val_mergulho', 60.0)
+        ang_s1 = params.get('ang_s1', 30.0)
         reg = params.get('regime', 'Normal')
         s1, s3 = params.get('s1', 120.0), params.get('s3', 40.0)
-        s2, rad = (s1 + s3) / 2, np.radians(ang_val)
+        s2 = (s1 + s3) / 2
         
-        # Definição dos eixos e vetores n e f baseados no ângulo com S1
-        if reg == 'Normal': # S1 vertical (Z)
-            e1, e2, e3 = np.array([0,0,1]), np.array([1,0,0]), np.array([0,1,0])
-            n_vec = np.array([0, np.sin(rad), np.cos(rad)]) 
-            f_dir = np.array([0, np.cos(rad), -np.sin(rad)])
-        elif reg == 'Transcorrente': # S1 horizontal (Y)
-            e1, e2, e3 = np.array([0,1,0]), np.array([0,0,1]), np.array([1,0,0])
-            n_vec = np.array([np.sin(rad), np.cos(rad), 0])
-            f_dir = np.array([np.cos(rad), -np.sin(rad), 0])
-        else: # Reverso: S1 horizontal (X)
-            e1, e2, e3 = np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1])
-            n_vec = np.array([np.cos(rad), 0, np.sin(rad)])
-            f_dir = np.array([-np.sin(rad), 0, np.cos(rad)])
+        # Radianos para o mergulho espacial
+        rad_m = np.radians(mergulho)
+        # Radianos para o cálculo do Tau (baseado no S1)
+        rad_s1 = np.radians(ang_s1)
+        
+        # Orientação por regime
+        if reg == 'Normal': e1, e2, e3 = np.array([0,0,1]), np.array([1,0,0]), np.array([0,1,0])
+        elif reg == 'Transcorrente': e1, e2, e3 = np.array([0,1,0]), np.array([0,0,1]), np.array([1,0,0])
+        else: e1, e2, e3 = np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1])
+
+        # O plano é desenhado com base no MERGULHO geológico (XYZ)
+        # n_vec aqui define a inclinação visual do plano no bloco
+        n_vec = np.array([0, np.sin(rad_m), np.cos(rad_m)])
+        f_dir = np.array([0, np.cos(rad_m), -np.sin(rad_m)])
 
         fig = go.Figure()
         v = np.array([[-40,-40,-50], [40,-40,-50], [40,40,-50], [-40,40,-50], [-40,-40,50], [40,-40,50], [40,40,50], [-40,40,50]])
         edges = [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]
         for e in edges: fig.add_trace(go.Scatter3d(x=[v[e[0]][0], v[e[1]][0]], y=[v[e[0]][1], v[e[1]][1]], z=[v[e[0]][2], v[e[1]][2]], mode='lines', line=dict(color='black', width=2), showlegend=False))
 
-        # Reconstrução do Plano para ser SEMPRE ortogonal ao Sn
         sz = 45
         cp = np.array([1, 0, 0]) if abs(n_vec[0]) < 0.9 else np.array([0, 1, 0])
         v1 = np.cross(n_vec, cp)
@@ -68,9 +72,11 @@ def plot_3d_block(params):
             fig.add_trace(go.Scatter3d(x=[ep[0]+d[0]*12], y=[ep[1]+d[1]*12], z=[ep[2]+d[2]*12], mode='text', text=[f"<b>{name}</b>"], textfont=dict(color=color, size=14), showlegend=False))
 
         add_arrow(e1, "blue", "S1", s1); add_arrow(e2, "green", "S2", s2); add_arrow(e3, "red", "S3", s3)
+        
+        # Sn e Tau são posicionados no espaço, mas Tau usa a magnitude baseada no rad_s1
         add_arrow(n_vec, "black", "Sn", s1, False)
-        t_val = abs(s1-s3)/2 * np.sin(2 * rad)
-        if t_val > 0.1: add_arrow(f_dir, "orange", "Tau", t_val, False)
+        t_mag = abs(s1-s3)/2 * np.sin(2 * rad_s1)
+        if t_mag > 0.1: add_arrow(f_dir, "orange", "Tau", t_mag, False)
 
         fig.update_layout(scene=dict(xaxis=dict(visible=False), yaxis=dict(visible=False), zaxis=dict(visible=False), aspectmode='cube', camera=dict(projection=dict(type='orthographic'))), height=500, margin=dict(l=0, r=0, t=0, b=0))
         st.plotly_chart(fig, use_container_width=True)
