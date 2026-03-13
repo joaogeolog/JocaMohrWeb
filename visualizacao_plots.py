@@ -32,7 +32,7 @@ def plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn_p, tn_p, 
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def plot_3d_block(params):
-    """Visualização 3D que mantém a rotação durante a edição de barras."""
+    """Visualização 3D com órbita livre."""
     with st.container(border=True):
         ang_s1 = params['ang_s1']
         theta_rad, mergulho_rad = np.radians(ang_s1), np.radians(90 - ang_s1)
@@ -73,31 +73,5 @@ def plot_3d_block(params):
         tau_val = abs(s1-s3)/2*np.sin(2*theta_rad)
         if tau_val > 0.1: add_arrow(face_dir, "orange", "Tau", tau_val, False)
 
-        # Lógica de preservação da câmera
-        camera_reset = st.session_state.get('reset_camera', False)
-        default_camera = dict(eye=dict(x=1.1, y=1.1, z=1.1), center=dict(x=0, y=0, z=0))
-        
-        # Se for reset de regime, usa a padrão. Senão, tenta ler a última posição da sessão.
-        camera = default_camera if camera_reset else st.session_state.get('last_camera', default_camera)
-        
-        fig.update_layout(
-            scene=dict(
-                xaxis=dict(visible=False, range=[-lim, lim]), 
-                yaxis=dict(visible=False, range=[-lim, lim]), 
-                zaxis=dict(visible=False, range=[-lim, lim]), 
-                aspectmode='cube',
-                camera=camera
-            ), 
-            height=500, margin=dict(l=0, r=0, t=0, b=0)
-        )
-        
-        # Renderiza e captura o evento de mudança de câmera
-        event = st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False}, on_select="rerun")
-        
-        # Se o usuário rodou o gráfico, salvamos a nova posição
-        if event and "camera" in event:
-            st.session_state.last_camera = event["camera"]
-            
-        # Limpa o flag de reset para as próximas interações
-        if camera_reset:
-            st.session_state.reset_camera = False
+        fig.update_layout(scene=dict(xaxis=dict(visible=False, range=[-lim, lim]), yaxis=dict(visible=False, range=[-lim, lim]), zaxis=dict(visible=False, range=[-lim, lim]), aspectmode='cube', camera=dict(eye=dict(x=1.1, y=1.1, z=1.1))), height=500, margin=dict(l=0, r=0, t=0, b=0))
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
