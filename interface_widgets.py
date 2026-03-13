@@ -19,20 +19,27 @@ def update_from_mergulho():
     st.session_state['val_ang'] = st.session_state['slide_ang'] = st.session_state['num_ang'] = a_val
 
 def reset_angles_on_regime():
-    reset_section(['ang'], rerun=False)
+    # Quando o regime muda, resetamos os ângulos e forçamos o gráfico a atualizar
+    reset_section(['ang'], clear_viz=True, rerun=False)
     if st.session_state.regime_sel == "Transcorrente":
         st.session_state['val_mergulho'] = st.session_state['slide_mergulho'] = st.session_state['num_mergulho'] = 90.0
     st.session_state['do_rerun'] = True 
 
-def reset_section(keys, rerun=True):
+def reset_section(keys, clear_viz=False, rerun=True):
+    """
+    Reinicia valores das barras. 
+    clear_viz: se True, limpa trajetória e ponto físico (usado apenas no Plano).
+    """
     for k in keys:
         for pfx in ['val_', 'slide_', 'num_']:
             st.session_state[pfx + k] = float(DEFAULTS[k])
-    if 'ang' in keys:
+    
+    if clear_viz:
         st.session_state.path_x, st.session_state.path_y = [], []
         st.session_state.ponto_fisico = {'sn': 0.0, 'tn': 0.0}
         m_val = 90.0 - DEFAULTS['ang']
         st.session_state['val_mergulho'] = st.session_state['slide_mergulho'] = st.session_state['num_mergulho'] = m_val
+    
     if rerun:
         st.rerun()
 
@@ -55,28 +62,30 @@ def dual_input(label, min_v, max_v, key_p, step=1.0):
 
 def render_bottom_interface():
     if 'val_ang' not in st.session_state:
-        reset_section(['ang'], rerun=False)
+        reset_section(['ang'], clear_viz=True, rerun=False)
 
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
         with c1:
             hdr_col1, btn_col1 = st.columns([2, 1])
             hdr_col1.markdown("<b style='font-size:0.8em;'>1. TENSÕES (MPa)</b>", unsafe_allow_html=True)
-            if btn_col1.button("Reiniciar", key="res_tens"): reset_section(['s1', 's3', 'pp'])
+            # Reset de Tensões: sem rerun e sem limpar viz
+            if btn_col1.button("Reiniciar", key="res_tens"): 
+                reset_section(['s1', 's3', 'pp'], clear_viz=False, rerun=False)
             dual_input("S1 (MPa)", 0, 250, 's1'); dual_input("S3 (MPa)", 0, 250, 's3'); dual_input("P. Poros (MPa)", 0, 100, 'pp')
         with c2:
             hdr_col2, btn_col2 = st.columns([2, 1])
             hdr_col2.markdown("<b style='font-size:0.8em;'>2. ROCHA</b>", unsafe_allow_html=True)
-            if btn_col2.button("Reiniciar", key="res_roc"): reset_section(['c', 'phi', 'ts', 'pc', 'alpha'])
-            dual_input("Coesão (MPa)", 0, 50, 'c')
-            dual_input("Ângulo Atrito (°)", 0, 50, 'phi')
-            dual_input("Tração (MPa)", -50, 0, 'ts') # Slider negativo para visualização
-            dual_input("Colapso (MPa)", 0, 250, 'pc')
-            dual_input("Biot (adim.)", 0.0, 1.0, 'alpha', step=0.01)
+            # Reset de Rocha: sem rerun e sem limpar viz
+            if btn_col2.button("Reiniciar", key="res_roc"): 
+                reset_section(['c', 'phi', 'ts', 'pc', 'alpha'], clear_viz=False, rerun=False)
+            dual_input("Coesão (MPa)", 0, 50, 'c'); dual_input("Ângulo Atrito (°)", 0, 50, 'phi'); dual_input("Tração (MPa)", -50, 0, 'ts'); dual_input("Colapso (MPa)", 0, 250, 'pc'); dual_input("Biot (adim.)", 0.0, 1.0, 'alpha', step=0.01)
         with c3:
             hdr_col3, btn_col3 = st.columns([2, 1])
             hdr_col3.markdown("<b style='font-size:0.8em;'>3. PLANO</b>", unsafe_allow_html=True)
-            if btn_col3.button("Reiniciar", key="res_pla"): reset_section(['ang'])
+            # Reset de Plano: mantém rerun e limpa trajetórias
+            if btn_col3.button("Reiniciar", key="res_pla"): 
+                reset_section(['ang'], clear_viz=True, rerun=True)
             st.selectbox("Regime Tectônico", ["Normal", "Transcorrente", "Reverso"], index=0, key='regime_sel', on_change=reset_angles_on_regime)
             is_trans = (st.session_state.regime_sel == "Transcorrente")
             if is_trans:
