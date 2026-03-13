@@ -22,8 +22,6 @@ def reset_angles_on_regime():
     reset_section(['ang'], clear_viz=True, rerun=False)
     if st.session_state.regime_sel == "Transcorrente":
         st.session_state['val_mergulho'] = st.session_state['slide_mergulho'] = st.session_state['num_mergulho'] = 90.0
-    # Único lugar que autoriza o reset da câmera
-    st.session_state['reset_camera'] = True
     st.session_state['do_rerun'] = True 
 
 def reset_section(keys, clear_viz=False, rerun=True):
