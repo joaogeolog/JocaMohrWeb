@@ -24,7 +24,7 @@ def dual_input(label, min_v, max_v, key_p, step=1.0):
     return st.session_state[base_key]
 
 def render_bottom_interface():
-    """Renderiza a interface limpa com os botões Reiniciar na mesma linha dos títulos."""
+    """Renderiza a interface com unidades nos rótulos das barras."""
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
         
@@ -33,20 +33,20 @@ def render_bottom_interface():
             hdr_col1.markdown("<b style='font-size:0.8em;'>1. TENSÕES (MPa)</b>", unsafe_allow_html=True)
             if btn_col1.button("Reiniciar", key="res_tens"): reset_section(['s1', 's3', 'pp'])
             
-            dual_input("S1", 0, 250, 's1')
-            dual_input("S3", 0, 250, 's3')
-            dual_input("P. Poros", 0, 100, 'pp')
+            dual_input("S1 (MPa)", 0, 250, 's1')
+            dual_input("S3 (MPa)", 0, 250, 's3')
+            dual_input("P. Poros (MPa)", 0, 100, 'pp')
             
         with c2:
             hdr_col2, btn_col2 = st.columns([2, 1])
             hdr_col2.markdown("<b style='font-size:0.8em;'>2. ROCHA</b>", unsafe_allow_html=True)
             if btn_col2.button("Reiniciar", key="res_roc"): reset_section(['c', 'phi', 'ts', 'pc', 'alpha'])
             
-            dual_input("Coesão", 0, 100, 'c')
+            dual_input("Coesão (MPa)", 0, 100, 'c')
             dual_input("Atrito (°)", 0, 90, 'phi')
-            dual_input("Tração", 0, 50, 'ts')
-            dual_input("Colapso", 0, 500, 'pc')
-            dual_input("Biot (α)", 0.0, 1.0, 'alpha', step=0.01)
+            dual_input("Tração (MPa)", 0, 50, 'ts')
+            dual_input("Colapso (MPa)", 0, 500, 'pc')
+            dual_input("Biot (adim.)", 0.0, 1.0, 'alpha', step=0.01)
             
         with c3:
             hdr_col3, btn_col3 = st.columns([2, 1])
@@ -54,7 +54,7 @@ def render_bottom_interface():
             if btn_col3.button("Reiniciar", key="res_pla"): reset_section(['ang'])
             
             st.selectbox("Regime Tectônico", ["Normal", "Transcorrente", "Reverso"], index=0, key='regime_sel')
-            dual_input("Ang/S1", 0, 90, 'ang')
+            dual_input("Ang/S1 (°)", 0, 90, 'ang')
             st.write("") 
             if st.button("Limpar Trajetória", use_container_width=True): 
                 st.session_state.path_x, st.session_state.path_y = [], []
