@@ -24,7 +24,7 @@ def dual_input(label, min_v, max_v, key_p, step=1.0):
     return st.session_state[base_key]
 
 def render_bottom_interface():
-    """Renderiza os controles com Biot movido corretamente para a seção de Rocha."""
+    """Renderiza os controles com Biot padronizado com slider e campo numérico."""
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
         
@@ -46,8 +46,8 @@ def render_bottom_interface():
             phi = dual_input("Atrito (°)", 0, 90, 'phi')
             ts = dual_input("Tração", 0, 50, 'ts')
             pc = dual_input("Colapso", 0, 500, 'pc')
-            # Biot movido para cá:
-            alpha = st.slider("Biot (α)", 0.0, 1.0, float(DEFAULTS['alpha']), step=0.01, key='val_alpha')
+            # Biot agora usa dual_input com step de 0.01
+            alpha = dual_input("Biot (α)", 0.0, 1.0, 'alpha', step=0.01)
             
         with c3:
             hdr_col3, btn_col3 = st.columns([2, 1])
