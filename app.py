@@ -4,19 +4,37 @@ import geostruct_engine as eng
 import interface_widgets as ui
 import visualizacao_plots as viz
 
-# 1. Configuração da Página - Essencial para o modo Wide
+# 1. Configuração da Página
 st.set_page_config(layout="wide", page_title="JocaMohr Web", page_icon="⚒️")
 
-# 2. CSS Minimalista: Apenas para garantir que o conteúdo comece no topo
+# 2. CSS para Molduras e Ajuste de Topo
 st.markdown("""
     <style>
     header {visibility: hidden;}
-    .block-container {
+    .main .block-container {
         padding-top: 1rem !important;
         padding-bottom: 0rem !important;
     }
-    /* Estilo para garantir que o ponto amarelo não cause saltos na tela */
-    iframe { max-height: 500px; }
+    /* Estilo das Molduras */
+    .moldura-3d {
+        border: 2px solid #f39c12; 
+        border-radius: 8px; 
+        padding: 5px;
+        background-color: white;
+    }
+    .moldura-mohr {
+        border: 2px solid #27ae60; 
+        border-radius: 8px; 
+        padding: 5px;
+        background-color: white;
+    }
+    .moldura-ui {
+        border: 1px solid #ddd; 
+        border-radius: 8px; 
+        padding: 15px;
+        background-color: #f9f9f9;
+        margin-top: 10px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -45,19 +63,24 @@ xc_f, yc_f, res_c, xc_o, yc_o = eng.obter_geometria_v18(
     (s1_eff+s3_eff)/2, (s1_eff-s3_eff)/2, x_env, y_env, p_init["ts"], p_init["pc"]
 )
 
-# 5. ÁREA SUPERIOR: GRÁFICOS (1/3 Cubo | 2/3 Mohr)
+# 5. ÁREA SUPERIOR: GRÁFICOS COM MOLDURAS
 col_3d, col_mohr = st.columns([1, 2])
 
 with col_3d:
+    st.markdown('<div class="moldura-3d">', unsafe_allow_html=True)
     viz.plot_3d_block(p_init)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 with col_mohr:
+    st.markdown('<div class="moldura-mohr">', unsafe_allow_html=True)
     viz.plot_mohr(x_env, y_env, xt_coll, xc_f, yc_f, res_c, xc_o, yc_o, sn, tn, 
                   st.session_state.get('path_x', []), st.session_state.get('path_y', []), falhou, p_init)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# 6. ÁREA INFERIOR: INTERFACE (3 Colunas Lado a Lado)
-st.divider()
+# 6. ÁREA INFERIOR: INTERFACE COM MOLDURA
+st.markdown('<div class="moldura-ui">', unsafe_allow_html=True)
 p = ui.render_bottom_interface()
+st.markdown('</div>', unsafe_allow_html=True)
 
 # Atualização de Trajetória
 st.session_state.ponto_fisico = {'sn': sn, 'tn': tn}
