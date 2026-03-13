@@ -1,6 +1,7 @@
 import streamlit as st
 
-DEFAULTS = {'s1': 120.0, 's3': 40.0, 'pp': 20.0, 'alpha': 1.0, 'c': 15.0, 'phi': 30.0, 'ts': 10.0, 'pc': 180.0, 'ang': 30.0, 'regime': 'Normal'}
+# DEFAULTS atualizado: Tração (ts) agora é -10.0
+DEFAULTS = {'s1': 120.0, 's3': 40.0, 'pp': 20.0, 'alpha': 1.0, 'c': 15.0, 'phi': 30.0, 'ts': -10.0, 'pc': 180.0, 'ang': 30.0, 'regime': 'Normal'}
 
 def sync_widgets(s, t, c):
     st.session_state[c] = st.session_state[t] = st.session_state[s]
@@ -68,10 +69,10 @@ def render_bottom_interface():
             hdr_col2, btn_col2 = st.columns([2, 1])
             hdr_col2.markdown("<b style='font-size:0.8em;'>2. ROCHA</b>", unsafe_allow_html=True)
             if btn_col2.button("Reiniciar", key="res_roc"): reset_section(['c', 'phi', 'ts', 'pc', 'alpha'])
-            # Limites atualizados conforme solicitado:
             dual_input("Coesão (MPa)", 0, 50, 'c')
             dual_input("Ângulo Atrito (°)", 0, 50, 'phi')
-            dual_input("Tração (MPa)", 0, 50, 'ts')
+            # ATUALIZADO: Tração de -50 a 0
+            dual_input("Tração (MPa)", -50, 0, 'ts')
             dual_input("Colapso (MPa)", 0, 250, 'pc')
             dual_input("Biot (adim.)", 0.0, 1.0, 'alpha', step=0.01)
         with c3:
